@@ -1,0 +1,167 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-display: 'DM Sans', 'Inter', system-ui, sans-serif;
+
+  /* Ink — primary text & dark surfaces */
+  --color-ink: #0a0a0a;
+  --color-ink-2: #3f3f3f;
+  --color-ink-3: #737373;
+  --color-ink-4: #a3a3a3;
+
+  /* Stone — warm neutrals (not blue-gray) */
+  --color-stone-50: #fafaf9;
+  --color-stone-100: #f5f5f4;
+  --color-stone-200: #e7e5e4;
+  --color-stone-300: #d6d3d1;
+  --color-stone-400: #a8a29e;
+  --color-stone-500: #78716c;
+  --color-stone-600: #57534e;
+  --color-stone-700: #44403c;
+  --color-stone-800: #292524;
+  --color-stone-900: #1c1917;
+
+  /* Forest — brand (growth, trust, NOT blue) */
+  --color-forest-50: #ecfdf5;
+  --color-forest-100: #d1fae5;
+  --color-forest-200: #a7f3d0;
+  --color-forest-500: #059669;
+  --color-forest-600: #047857;
+  --color-forest-700: #065f46;
+  --color-forest-800: #0f4c3a;
+  --color-forest-900: #0a3d2e;
+
+  /* Gold — premium CTA accent */
+  --color-gold-50: #fffbeb;
+  --color-gold-100: #fef3c7;
+  --color-gold-500: #d97706;
+  --color-gold-600: #b45309;
+  --color-gold-700: #92400e;
+  --color-gold-700: #92400e;
+
+  /* Legacy aliases for minimal breakage */
+  --color-brand-50: #ecfdf5;
+  --color-brand-100: #d1fae5;
+  --color-brand-500: #059669;
+  --color-brand-600: #047857;
+  --color-brand-700: #065f46;
+  --color-brand-800: #0f4c3a;
+  --color-brand-900: #0a3d2e;
+  --color-accent-50: #fffbeb;
+  --color-accent-500: #d97706;
+  --color-accent-600: #b45309;
+  --color-navy-50: #fafaf9;
+  --color-navy-100: #f5f5f4;
+  --color-navy-200: #e7e5e4;
+  --color-navy-300: #d6d3d1;
+  --color-navy-400: #a8a29e;
+  --color-navy-500: #78716c;
+  --color-navy-600: #57534e;
+  --color-navy-700: #44403c;
+  --color-navy-800: #292524;
+  --color-navy-900: #1c1917;
+  --color-navy-950: #0a0a0a;
+  --color-surface: #ffffff;
+  --color-surface-alt: #fafaf9;
+  --color-border: #e7e5e4;
+  --color-muted: #737373;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 4.5rem;
+  }
+
+  body {
+    @apply bg-stone-50 font-sans text-[15px] leading-relaxed text-ink-2 antialiased;
+  }
+
+  h1, h2, h3, h4 {
+    @apply font-display text-ink tracking-tight;
+  }
+
+  ::selection {
+    background: #d1fae5;
+    color: #0a3d2e;
+  }
+}
+
+@layer utilities {
+  .text-display-xl {
+    @apply font-display text-[2.5rem] font-bold leading-[1.08] tracking-[-0.03em] sm:text-5xl lg:text-[3.25rem];
+  }
+
+  .text-display-lg {
+    @apply font-display text-[1.75rem] font-bold leading-[1.15] tracking-[-0.02em] sm:text-[2.25rem];
+  }
+
+  .text-display-md {
+    @apply font-display text-xl font-bold leading-snug tracking-[-0.01em] sm:text-2xl;
+  }
+
+  .text-body-lg {
+    @apply text-base leading-7 text-ink-3 sm:text-[17px];
+  }
+
+  .text-label {
+    @apply text-[11px] font-semibold uppercase tracking-[0.16em] text-forest-700;
+  }
+
+  .section-padding {
+    @apply py-16 md:py-20 lg:py-24;
+  }
+
+  .section-padding-sm {
+    @apply py-10 md:py-14;
+  }
+
+  /* Editorial section divider */
+  .section-rule {
+    @apply border-t border-stone-200;
+  }
+
+  /* Cards — minimal, editorial */
+  .card {
+    @apply rounded-lg border border-stone-200 bg-white;
+  }
+
+  .card-interactive {
+    @apply rounded-lg border border-stone-200 bg-white transition-[box-shadow,border-color] duration-200;
+  }
+
+  .card-interactive:hover {
+    border-color: #d6d3d1;
+    box-shadow: 0 4px 24px -4px rgba(10, 10, 10, 0.08);
+  }
+
+  .input-field {
+    @apply h-11 rounded-md border border-stone-300 bg-white px-4 text-sm text-ink placeholder:text-ink-4 focus:border-forest-600 focus:outline-none focus:ring-2 focus:ring-forest-100;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-md bg-forest-800 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-forest-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest-600 focus-visible:ring-offset-2;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center rounded-md border border-stone-300 bg-white px-5 py-2.5 text-sm font-semibold text-ink transition-colors hover:border-stone-400 hover:bg-stone-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 focus-visible:ring-offset-2;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium text-ink-2 transition-colors hover:bg-stone-100 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400;
+  }
+
+  .link-underline {
+    @apply text-forest-800 font-semibold underline decoration-forest-200 underline-offset-4 transition-colors hover:decoration-forest-600;
+  }
+
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .animate-rise {
+    animation: rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
