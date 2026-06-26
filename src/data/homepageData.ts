@@ -76,25 +76,25 @@ export const navItems: NavItem[] = [
   {
     label: 'Programs',
     children: [
-      { label: 'Featured Courses', href: '#courses', description: 'Expert-led programs with coaching' },
-      { label: 'Browse Categories', href: '#categories', description: 'Explore by skill area' },
+      { label: 'Featured Courses', href: '/#courses', description: 'Expert-led programs with coaching' },
+      { label: 'Browse Categories', href: '/#categories', description: 'Explore by skill area' },
       { label: 'Full Catalog', href: '/courses', description: 'View all available courses' },
     ],
   },
-  { label: 'Certifications', href: '#certifications' },
+  { label: 'Certifications', href: '/#certifications' },
   {
     label: 'For Business',
-    href: '#enterprise',
+    href: '/#enterprise',
     children: [
-      { label: 'Enterprise Solutions', href: '#enterprise', description: 'Team upskilling programs' },
-      { label: 'Request Demo', href: '#contact', description: 'Schedule a consultation' },
+      { label: 'Enterprise Solutions', href: '/#enterprise', description: 'Team upskilling programs' },
+      { label: 'Request Demo', href: '/#contact', description: 'Schedule a consultation' },
     ],
   },
   {
     label: 'Resources',
     children: [
-      { label: 'Blog & Insights', href: '#blogs', description: 'Career guidance articles' },
-      { label: 'How It Works', href: '#how-it-works', description: 'Our coaching-first process' },
+      { label: 'Blog & Insights', href: '/#blogs', description: 'Career guidance articles' },
+      { label: 'How It Works', href: '/#how-it-works', description: 'Our coaching-first process' },
     ],
   },
 ]
@@ -387,20 +387,20 @@ export const corporateBenefits: string[] = [
 export const footerLinks = {
   courses: [
     { label: 'All Courses', href: '/courses' },
-    { label: 'Featured Programs', href: '#courses' },
-    { label: 'Categories', href: '#categories' },
-    { label: 'Certifications', href: '#certifications' },
+    { label: 'Featured Programs', href: '/#courses' },
+    { label: 'Categories', href: '/#categories' },
+    { label: 'Certifications', href: '/#certifications' },
   ],
   company: [
-    { label: 'About Us', href: '#how-it-works' },
-    { label: 'Blog & Resources', href: '#blogs' },
-    { label: 'Enterprise', href: '#enterprise' },
-    { label: 'Contact Us', href: '#contact' },
+    { label: 'About Us', href: '/#how-it-works' },
+    { label: 'Blog & Resources', href: '/#blogs' },
+    { label: 'Enterprise', href: '/#enterprise' },
+    { label: 'Contact Us', href: '/#contact' },
   ],
   legal: [
-    { label: 'Refund and Returns Policy', href: '#' },
-    { label: 'Privacy Policy', href: '#' },
-    { label: 'Terms of Service', href: '#' },
+    { label: 'Refund and Returns Policy', href: 'https://sharvaconsulting.com/refund_returns/' },
+    { label: 'Privacy Policy', href: 'https://sharvaconsulting.com/privacy-policy/' },
+    { label: 'Terms of Service', href: 'https://sharvaconsulting.com/terms-of-service/' },
   ],
 }
 

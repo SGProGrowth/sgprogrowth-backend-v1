@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { searchSuggestions } from '../../data/homepageData'
 
 interface SearchBarProps {
@@ -6,6 +7,7 @@ interface SearchBarProps {
   suggestions?: string[]
   size?: 'md' | 'lg'
   className?: string
+  defaultQuery?: string
 }
 
 export function SearchBar({
@@ -13,11 +15,20 @@ export function SearchBar({
   suggestions = searchSuggestions,
   size = 'md',
   className = '',
+  defaultQuery = '',
 }: SearchBarProps) {
-  const [query, setQuery] = useState('')
+  const navigate = useNavigate()
+  const inputId = useId()
+  const [query, setQuery] = useState(defaultQuery)
   const [focused, setFocused] = useState(false)
 
   const h = size === 'lg' ? 'h-[52px] text-[15px]' : 'h-10 text-sm'
+
+  const goToSearch = (term: string) => {
+    const trimmed = term.trim()
+    if (!trimmed) return
+    navigate(`/courses?q=${encodeURIComponent(trimmed)}`)
+  }
 
   return (
     <div className={`relative ${className}`}>
@@ -25,16 +36,16 @@ export function SearchBar({
         role="search"
         onSubmit={(e) => {
           e.preventDefault()
-          if (query.trim()) window.location.href = `/courses?q=${encodeURIComponent(query.trim())}`
+          goToSearch(query)
         }}
         className={`flex items-center overflow-hidden rounded-md border border-stone-300 bg-white transition-colors focus-within:border-forest-600 focus-within:ring-2 focus-within:ring-forest-100 ${h}`}
       >
-        <label htmlFor="site-search" className="sr-only">Search</label>
-        <svg className="ml-4 h-4 w-4 shrink-0 text-ink-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <label htmlFor={inputId} className="sr-only">Search courses</label>
+        <svg className="ml-4 h-4 w-4 shrink-0 text-ink-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
         </svg>
         <input
-          id="site-search"
+          id={inputId}
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -55,8 +66,8 @@ export function SearchBar({
             <button
               key={term}
               type="button"
-              onMouseDown={() => { window.location.href = `/courses?q=${encodeURIComponent(term)}` }}
-              className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-ink-2 hover:bg-stone-50 hover:text-ink"
+              onMouseDown={() => goToSearch(term)}
+              className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-ink-2 hover:bg-stone-50 hover:text-ink transition-colors"
             >
               {term}
             </button>

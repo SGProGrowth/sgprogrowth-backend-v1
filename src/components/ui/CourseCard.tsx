@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import type { Course } from '../../data/homepageData'
 import { Rating } from './Rating'
 
@@ -23,7 +24,7 @@ export function CourseCard({ course }: CourseCardProps) {
 
   return (
     <article className="card-interactive flex h-full flex-col overflow-hidden group">
-      <a href={url} className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest-600 focus-visible:ring-inset">
+      <Link to={url} className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest-600 focus-visible:ring-inset">
         <div className={`relative aspect-[16/9] ${getThumbColor(course.id)}`}>
           <div className="absolute inset-0 flex flex-col justify-between p-4">
             <div className="flex gap-2">
@@ -33,14 +34,14 @@ export function CourseCard({ course }: CourseCardProps) {
             <span className="inline-flex w-fit rounded px-2 py-1 text-[11px] font-medium bg-white/90 text-ink">{course.category}</span>
           </div>
         </div>
-      </a>
+      </Link>
 
       <div className="flex flex-1 flex-col p-5">
-        <a href={url} className="focus-visible:outline-none">
+        <Link to={url} className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest-600 rounded-sm">
           <h3 className="line-clamp-2 text-[15px] font-bold leading-snug text-ink group-hover:text-forest-800 transition-colors">
             {course.title}
           </h3>
-        </a>
+        </Link>
         <p className="mt-1 text-xs text-ink-3">{course.instructor}</p>
         <div className="mt-3"><Rating rating={course.rating} reviewCount={course.reviewCount} /></div>
         <p className="mt-2 text-xs text-ink-3">{course.duration}{course.learners ? ` · ${course.learners} learners` : ''}</p>
@@ -49,9 +50,9 @@ export function CourseCard({ course }: CourseCardProps) {
           {course.price
             ? <span className="text-base font-bold text-ink">{course.price}</span>
             : <span className="text-sm font-medium text-forest-700">Free consultation</span>}
-          <a href={url} className="text-sm font-semibold text-forest-800 hover:text-forest-900 underline decoration-forest-200 underline-offset-4">
+          <Link to={url} className="text-sm font-semibold text-forest-800 hover:text-forest-900 underline decoration-forest-200 underline-offset-4 transition-colors">
             {course.price ? 'Enroll' : course.ctaLabel} →
-          </a>
+          </Link>
         </div>
       </div>
     </article>

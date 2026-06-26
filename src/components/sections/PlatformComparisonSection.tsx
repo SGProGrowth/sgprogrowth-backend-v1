@@ -28,7 +28,7 @@ export function PlatformComparisonSection() {
                 </li>
               ))}
             </ul>
-            <Button href="#signup" variant="gold" size="md" className="mt-8">Get started free</Button>
+            <Button to="/register" variant="gold" size="md" className="mt-8">Get started free</Button>
           </div>
         </div>
       </Container>

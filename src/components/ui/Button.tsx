@@ -1,4 +1,6 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
+import { Link } from 'react-router-dom'
+import { isExternalHref, resolveMarketingHref } from '../../lib/navigation'
 
 type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'outline' | 'gold'
 type ButtonSize = 'sm' | 'md' | 'lg'
@@ -8,6 +10,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant
   size?: ButtonSize
   href?: string
+  to?: string
 }
 
 const variantStyles: Record<ButtonVariant, string> = {
@@ -34,21 +37,42 @@ export function Button({
   variant = 'primary',
   size = 'md',
   href,
+  to,
   className = '',
+  disabled,
+  type = 'button',
   ...props
 }: ButtonProps) {
   const classes = `inline-flex items-center justify-center gap-2 font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ${variantStyles[variant]} ${sizeStyles[size]} ${className}`
 
-  if (href) {
+  if (to) {
+    if (disabled) {
+      return <span className={`${classes} pointer-events-none opacity-50`} aria-disabled="true">{children}</span>
+    }
     return (
-      <a href={href} className={classes}>
+      <Link to={to} className={classes} aria-disabled={disabled || undefined}>
+        {children}
+      </Link>
+    )
+  }
+
+  if (href) {
+    const resolved = resolveMarketingHref(href)
+    const external = isExternalHref(resolved)
+    return (
+      <a
+        href={resolved}
+        className={classes}
+        {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+        aria-disabled={disabled || undefined}
+      >
         {children}
       </a>
     )
   }
 
   return (
-    <button type="button" className={classes} {...props}>
+    <button type={type} className={classes} disabled={disabled} {...props}>
       {children}
     </button>
   )

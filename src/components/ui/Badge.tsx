@@ -5,10 +5,10 @@ interface BadgeProps {
 }
 
 const variants = {
-  default: 'bg-slate-100 text-slate-700',
-  brand: 'bg-brand-50 text-brand-700',
-  accent: 'bg-accent-50 text-accent-600',
-  dark: 'bg-navy-900 text-white',
+  default: 'bg-stone-100 text-ink-2',
+  brand: 'bg-forest-100 text-forest-800',
+  accent: 'bg-gold-100 text-gold-700',
+  dark: 'bg-forest-900 text-white',
 }
 
 export function Badge({ children, variant = 'default', className = '' }: BadgeProps) {

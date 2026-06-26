@@ -140,6 +140,10 @@
     @apply h-11 rounded-md border border-stone-300 bg-white px-4 text-sm text-ink placeholder:text-ink-4 focus:border-forest-600 focus:outline-none focus:ring-2 focus:ring-forest-100;
   }
 
+  .input-field-error {
+    @apply border-red-400 focus:border-red-500 focus:ring-red-100;
+  }
+
   .btn-primary {
     @apply inline-flex items-center justify-center rounded-md bg-forest-800 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-forest-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest-600 focus-visible:ring-offset-2;
   }
