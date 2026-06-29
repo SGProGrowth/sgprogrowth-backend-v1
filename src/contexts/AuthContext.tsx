@@ -6,6 +6,18 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+import {
+  displayNameFromEmail,
+  getOrCreateUserId,
+  getRegistration,
+  clearRegistration,
+  saveRegistration,
+  initialsFromName,
+  normalizeEmail,
+} from '../lib/auth/userSession'
+import { clearWorkspaceCache } from '../lib/workspaceCache'
+import { findInstructorProfileByEmail } from '../data/instructorProfiles'
+import { findStudentProfileByEmail } from '../data/studentProfiles'
 
 export type UserRole = 'student' | 'instructor'
 
@@ -38,12 +50,31 @@ function loadStoredUser(): User | null {
   }
 }
 
-function initialsFromName(name: string): string {
-  return name
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? '')
-    .join('')
+function resolveAuthUser(
+  email: string,
+  role: UserRole,
+  nameOverride?: string,
+): User {
+  const normalizedEmail = normalizeEmail(email)
+  const catalog =
+    role === 'instructor'
+      ? findInstructorProfileByEmail(normalizedEmail)
+      : findStudentProfileByEmail(normalizedEmail)
+
+  const fallbackName = displayNameFromEmail(
+    normalizedEmail,
+    role === 'instructor' ? 'Instructor' : 'Learner',
+  )
+  const name = nameOverride?.trim() || catalog?.name || fallbackName
+  const id = catalog?.id ?? getOrCreateUserId(normalizedEmail, role)
+
+  return {
+    id,
+    name,
+    email: email.trim(),
+    role,
+    avatarInitials: catalog?.avatarInitials ?? initialsFromName(name),
+  }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -55,27 +86,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
     } else {
       localStorage.removeItem(STORAGE_KEY)
+      clearWorkspaceCache()
     }
   }, [])
 
   const signIn = useCallback(
     async (email: string, _password: string, role: UserRole) => {
-      await new Promise((resolve) => setTimeout(resolve, 600))
-      const stored = loadStoredUser()
-      const normalizedEmail = email.trim().toLowerCase()
-      const name =
-        stored && stored.email.toLowerCase() === normalizedEmail
-          ? stored.name
-          : role === 'instructor'
-            ? 'Mahesh M.'
-            : normalizedEmail.split('@')[0]?.replace(/[._]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) || 'Learner'
-      const next: User = {
-        id: stored?.email.toLowerCase() === normalizedEmail ? stored.id : crypto.randomUUID(),
-        name,
-        email: email.trim(),
-        role,
-        avatarInitials: initialsFromName(name),
-      }
+      // Replace with API call: POST /auth/login → { user, token }
+      const registration = getRegistration(email, role)
+      const next = resolveAuthUser(email, role, registration?.name)
+      clearRegistration(email, role)
       persistUser(next)
     },
     [persistUser],
@@ -83,17 +103,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = useCallback(
     async (name: string, email: string, _password: string, role: UserRole) => {
-      await new Promise((resolve) => setTimeout(resolve, 800))
-      const next: User = {
-        id: crypto.randomUUID(),
-        name,
-        email,
-        role,
-        avatarInitials: initialsFromName(name),
-      }
-      persistUser(next)
+      // Replace with API call: POST /auth/register — creates account only, no session
+      saveRegistration(name, email, role)
     },
-    [persistUser],
+    [],
   )
 
   const signOut = useCallback(() => {

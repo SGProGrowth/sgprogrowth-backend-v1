@@ -34,7 +34,7 @@ export function SectionHeader({
           </p>
         )}
       </div>
-      {action && <div className="shrink-0">{action}</div>}
+      {action && <div className="page-actions w-full shrink-0 md:w-auto">{action}</div>}
     </div>
   )
 }

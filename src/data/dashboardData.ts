@@ -37,14 +37,26 @@ export type NavIcon =
   | 'profile'
   | 'grades'
   | 'announcements'
+  | 'batches'
+  | 'question-bank'
+  | 'import'
 
 export const studentNavSections: NavSection[] = [
   {
     items: [
       { label: 'Overview', href: '/dashboard', icon: 'home', description: 'Your learning at a glance' },
-      { label: 'My Courses', href: '/dashboard/courses', icon: 'courses', badge: '3', description: 'Active enrollments' },
+      { label: 'My Courses', href: '/dashboard/courses', icon: 'courses', description: 'Active enrollments' },
       { label: 'Learning Progress', href: '/dashboard/progress', icon: 'progress', description: 'Milestones & completion' },
-      { label: 'Assignments', href: '/dashboard/assignments', icon: 'assignments', badge: '3', description: 'Submissions & deadlines' },
+      { label: 'Assignments', href: '/dashboard/assignments', icon: 'assignments', description: 'Submissions & deadlines' },
+      { label: 'Calendar', href: '/dashboard/calendar', icon: 'calendar', description: 'Sessions, deadlines & events' },
+      { label: 'My Batches', href: '/dashboard/batches', icon: 'batches', description: 'Cohort schedules & classmates' },
+    ],
+  },
+  {
+    title: 'Connect',
+    items: [
+      { label: 'Live Sessions', href: '/dashboard/coaching', icon: 'coaching', description: 'Coaching & live classes' },
+      { label: 'Messages', href: '/dashboard/messages', icon: 'messages', description: 'Instructor conversations' },
     ],
   },
   {
@@ -57,7 +69,8 @@ export const studentNavSections: NavSection[] = [
   {
     title: 'Account',
     items: [
-      { label: 'Notifications', href: '/dashboard/notifications', icon: 'notifications', badge: '3', description: 'Updates & alerts' },
+      { label: 'Notifications', href: '/dashboard/notifications', icon: 'notifications', description: 'Updates & alerts' },
+      { label: 'Downloads', href: '/dashboard/downloads', icon: 'content', description: 'Course materials & resources' },
       { label: 'Browse Catalog', href: '/courses', icon: 'catalog', description: 'Explore all programs' },
       { label: 'Profile & Settings', href: '/dashboard/settings', icon: 'profile', description: 'Account preferences' },
     ],
@@ -68,25 +81,30 @@ export const instructorNavSections: NavSection[] = [
   {
     items: [
       { label: 'Overview', href: '/instructor', icon: 'home', description: 'Teaching dashboard' },
-      { label: 'My Courses', href: '/instructor/courses', icon: 'courses', badge: '4', description: 'Manage programs' },
-      { label: 'Students', href: '/instructor/students', icon: 'students', badge: '128', description: 'Enrollments & progress' },
-      { label: 'Live Sessions', href: '/instructor/coaching', icon: 'coaching', badge: '6', description: 'Coaching schedule' },
+      { label: 'My Courses', href: '/instructor/courses', icon: 'courses', description: 'Manage programs' },
+      { label: 'Students', href: '/instructor/students', icon: 'students', description: 'Enrollments & progress' },
+      { label: 'Batches', href: '/instructor/batches', icon: 'batches', description: 'Cohort & batch management' },
+      { label: 'Live Sessions', href: '/instructor/coaching', icon: 'coaching', description: 'Coaching schedule' },
     ],
   },
   {
     title: 'Teaching',
     items: [
-      { label: 'Grade Management', href: '/instructor/grades', icon: 'grades', badge: '8', description: 'Review submissions' },
+      { label: 'Assignments', href: '/instructor/assignments', icon: 'assignments', description: 'Create & manage coursework' },
+      { label: 'Quizzes', href: '/instructor/quizzes', icon: 'quizzes', description: 'Generic & course quizzes' },
+      { label: 'Question Bank', href: '/instructor/question-bank', icon: 'question-bank', description: 'Reusable assessment items' },
+      { label: 'Grade Management', href: '/instructor/grades', icon: 'grades', description: 'Review submissions' },
       { label: 'Announcements', href: '/instructor/announcements', icon: 'announcements', description: 'Course communications' },
-      { label: 'Messages', href: '/instructor/messages', icon: 'messages', badge: '2', description: 'Student inbox' },
+      { label: 'Messages', href: '/instructor/messages', icon: 'messages', description: 'Student inbox' },
     ],
   },
   {
     title: 'Insights',
     items: [
       { label: 'Analytics', href: '/instructor/analytics', icon: 'analytics', description: 'Performance insights' },
+      { label: 'Earnings', href: '/instructor/earnings', icon: 'earnings', description: 'Revenue & payouts' },
       { label: 'Calendar', href: '/instructor/calendar', icon: 'calendar', description: 'Events & deadlines' },
-      { label: 'Notifications', href: '/instructor/notifications', icon: 'notifications', badge: '3', description: 'Platform alerts' },
+      { label: 'Notifications', href: '/instructor/notifications', icon: 'notifications', description: 'Platform alerts' },
     ],
   },
   {
@@ -119,7 +137,7 @@ export const studentActivePrograms = [
   {
     id: 'aws-saa',
     title: 'AWS Solutions Architect',
-    coach: 'Mahesh M.',
+    coach: 'Aanya Mehta',
     progress: 68,
     week: 'Week 6 of 10',
     nextUp: 'Module 4: VPC & Networking',
@@ -128,7 +146,7 @@ export const studentActivePrograms = [
   {
     id: 'it-pm',
     title: 'IT Project Management',
-    coach: 'Kanchi Shah',
+    coach: 'Rohan Kapoor',
     progress: 34,
     week: 'Week 3 of 12',
     nextUp: 'Stakeholder management workshop',
@@ -137,7 +155,7 @@ export const studentActivePrograms = [
   {
     id: 'data-analytics',
     title: 'Data Analytics Foundations',
-    coach: 'Mahesh M.',
+    coach: 'Aanya Mehta',
     progress: 12,
     week: 'Week 1 of 8',
     nextUp: 'Orientation & goal setting',
@@ -146,16 +164,16 @@ export const studentActivePrograms = [
 ]
 
 export const studentUpcoming = [
-  { label: '1:1 Coaching session', meta: 'Tomorrow · 3:00 PM', type: 'live' as const, with: 'Mahesh M.' },
+  { label: '1:1 Coaching session', meta: 'Tomorrow · 3:00 PM', type: 'live' as const, with: 'Aanya Mehta' },
   { label: 'Module 4: VPC & Networking', meta: 'Self-paced · 2 hrs', type: 'module' as const, with: 'AWS SAA' },
-  { label: 'Practice exam review', meta: 'Friday · 11:00 AM', type: 'live' as const, with: 'Mahesh M.' },
+  { label: 'Practice exam review', meta: 'Friday · 11:00 AM', type: 'live' as const, with: 'Aanya Mehta' },
   { label: 'Career roadmap check-in', meta: 'Mon · 10:00 AM', type: 'coaching' as const, with: 'Career coach' },
 ]
 
 export const studentCoachingSessions = [
-  { id: '1', title: 'AWS exam strategy', coach: 'Mahesh M.', date: 'Jun 26, 2026', time: '3:00 PM', status: 'upcoming' as const },
+  { id: '1', title: 'AWS exam strategy', coach: 'Aanya Mehta', date: 'Jun 26, 2026', time: '3:00 PM', status: 'upcoming' as const },
   { id: '2', title: 'Career roadmap review', coach: 'Career coach', date: 'Jun 30, 2026', time: '10:00 AM', status: 'upcoming' as const },
-  { id: '3', title: 'Project management Q&A', coach: 'Kanchi Shah', date: 'Jun 18, 2026', time: '2:00 PM', status: 'completed' as const },
+  { id: '3', title: 'Project management Q&A', coach: 'Rohan Kapoor', date: 'Jun 18, 2026', time: '2:00 PM', status: 'completed' as const },
 ]
 
 export const studentRoadmapMilestones = [

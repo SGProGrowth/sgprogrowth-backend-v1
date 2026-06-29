@@ -19,7 +19,7 @@ export function DemoRequestForm({ onClose }: { onClose?: () => void }) {
     // mailto fallback to contact sales
     const subject = encodeURIComponent(`Demo request from ${name} (${company})`)
     const body = encodeURIComponent(`Name: ${name}\nEmail: ${email}\nCompany: ${company}\n\nMessage:\n${message}`)
-    const mailto = `mailto:sales@sharvagroup.com?subject=${subject}&body=${body}`
+    const mailto = `mailto:sales@sgprogrowth.com?subject=${subject}&body=${body}`
 
     // show success message then trigger mailto
     setTimeout(() => {

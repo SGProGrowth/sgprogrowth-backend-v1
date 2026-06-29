@@ -11,11 +11,11 @@ interface PanelProps {
 export function Panel({ title, action, children, className = '', noPadding = false }: PanelProps) {
   return (
     <section className={`rounded-xl border border-stone-200 bg-white shadow-[0_1px_2px_rgba(10,10,10,0.04)] ${className}`}>
-      <div className="flex items-center justify-between gap-4 border-b border-stone-100 px-5 py-4 md:px-6">
+      <div className="flex flex-col gap-3 border-b border-stone-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5 md:px-6">
         <h2 className="font-display text-[15px] font-bold text-ink">{title}</h2>
         {action}
       </div>
-      <div className={noPadding ? '' : 'p-5 md:p-6'}>{children}</div>
+      <div className={noPadding ? '' : 'p-4 sm:p-5 md:p-6'}>{children}</div>
     </section>
   )
 }
@@ -29,13 +29,13 @@ interface PageIntroProps {
 
 export function PageIntro({ eyebrow, title, description, action }: PageIntroProps) {
   return (
-    <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-      <div>
+    <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-end sm:justify-between">
+      <div className="min-w-0">
         {eyebrow && <p className="text-label mb-2">{eyebrow}</p>}
         <h1 className="text-display-lg text-ink">{title}</h1>
         {description && <p className="mt-2 max-w-2xl text-body-lg">{description}</p>}
       </div>
-      {action}
+      {action && <div className="page-actions shrink-0">{action}</div>}
     </div>
   )
 }
@@ -55,7 +55,10 @@ interface TabBarProps {
 
 export function TabBar({ tabs, active, onChange, className = '' }: TabBarProps) {
   return (
-    <div className={`mb-6 flex gap-1 overflow-x-auto border-b border-stone-200 pb-px ${className}`} role="tablist">
+    <div
+      className={`mb-6 flex gap-1 overflow-x-auto scroll-touch border-b border-stone-200 pb-px -mx-1 px-1 ${className}`}
+      role="tablist"
+    >
       {tabs.map((tab) => (
         <button
           key={tab.id}
@@ -63,7 +66,7 @@ export function TabBar({ tabs, active, onChange, className = '' }: TabBarProps) 
           role="tab"
           aria-selected={active === tab.id}
           onClick={() => onChange(tab.id)}
-          className={`shrink-0 border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors ${
+          className={`shrink-0 min-h-11 border-b-2 px-3 py-2.5 text-sm font-semibold transition-colors sm:px-4 ${
             active === tab.id
               ? 'border-forest-700 text-forest-800'
               : 'border-transparent text-ink-3 hover:text-ink-2'
@@ -92,7 +95,7 @@ interface StatTileProps {
 
 export function StatTile({ label, value, hint, icon }: StatTileProps) {
   return (
-    <div className="rounded-xl border border-stone-200 bg-white p-5 shadow-[0_1px_2px_rgba(10,10,10,0.04)]">
+    <div className="rounded-xl border border-stone-200 bg-white p-4 shadow-[0_1px_2px_rgba(10,10,10,0.04)] sm:p-5">
       <div className="flex items-start justify-between gap-3">
         <p className="text-xs font-medium uppercase tracking-wider text-ink-3">{label}</p>
         {icon && <div className="text-forest-700">{icon}</div>}
@@ -103,7 +106,15 @@ export function StatTile({ label, value, hint, icon }: StatTileProps) {
   )
 }
 
-export function EmptyState({ title, description }: { title: string; description: string }) {
+export function EmptyState({
+  title,
+  description,
+  action,
+}: {
+  title: string
+  description: string
+  action?: ReactNode
+}) {
   return (
     <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-stone-300 bg-stone-50/50 px-6 py-16 text-center">
       <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-stone-200/80">
@@ -113,6 +124,7 @@ export function EmptyState({ title, description }: { title: string; description:
       </div>
       <p className="font-display text-base font-bold text-ink">{title}</p>
       <p className="mt-1 max-w-sm text-sm text-ink-3">{description}</p>
+      {action && <div className="mt-6">{action}</div>}
     </div>
   )
 }

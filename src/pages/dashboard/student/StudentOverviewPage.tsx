@@ -1,46 +1,49 @@
-import { useAuth } from '../../../contexts/AuthContext'
-import {
-  continueLearning,
-  getGreeting,
-  learningSummary,
-  upcomingActivities,
-} from '../../../data/studentData'
-import { ContinueLearningCard } from '../../../components/student/CourseCards'
+import { Link } from 'react-router-dom'
+import { getGreeting } from '../../../data/studentData'
+import { useStudentDashboard } from '../../../hooks/useStudentDashboard'
+import { ContinueLearningCard, EnrolledCourseCard } from '../../../components/student/CourseCards'
 import {
   LearningSummaryStrip,
   StreakWidget,
   UpcomingActivitiesList,
   WeeklyActivityChart,
 } from '../../../components/student/OverviewWidgets'
-import { EnrolledCourseCard } from '../../../components/student/CourseCards'
-import { getActiveCourses } from '../../../data/studentData'
 import { Panel } from '../../../components/student/Panel'
-import { Link } from 'react-router-dom'
+import { Button } from '../../../components/ui/Button'
 
 export function StudentOverviewPage() {
-  const { user } = useAuth()
+  const { user, workspace } = useStudentDashboard()
   const firstName = user?.name.split(' ')[0] ?? 'there'
-  const activeCourses = getActiveCourses().slice(0, 2)
+  const { summary } = workspace
+  const activeCourses = workspace.courses.filter((c) => c.status === 'active').slice(0, 2)
+  const hasCourses = workspace.courses.length > 0
 
   return (
     <div className="animate-rise space-y-8">
-      {/* Welcome */}
       <header className="rounded-2xl border border-stone-200 bg-white px-6 py-8 md:px-8 shadow-[0_1px_2px_rgba(10,10,10,0.04)]">
         <p className="text-label mb-2">Welcome back</p>
         <h1 className="text-display-lg text-ink">
           {getGreeting()}, {firstName}
         </h1>
         <p className="mt-3 max-w-2xl text-body-lg">
-          You&apos;re {learningSummary.overallProgress}% through your learning path. Continue AWS prep and complete
-          today&apos;s assignment before your coaching session tomorrow.
+          {hasCourses
+            ? `You're ${summary.overallProgress}% through your learning path. Continue your top program and complete pending assignments before your next coaching session.`
+            : 'Your dashboard is ready. Browse courses to enroll and start your coaching-led learning journey.'}
         </p>
+        {!hasCourses && (
+          <div className="mt-6">
+            <Button to="/courses" variant="primary">
+              Browse courses
+            </Button>
+          </div>
+        )}
       </header>
 
-      <LearningSummaryStrip />
+      <LearningSummaryStrip summary={summary} />
 
       <div className="grid gap-6 lg:grid-cols-5">
         <div className="lg:col-span-3 space-y-6">
-          {continueLearning && <ContinueLearningCard course={continueLearning} />}
+          {workspace.continueLearning && <ContinueLearningCard course={workspace.continueLearning} />}
 
           <Panel
             title="Active courses"
@@ -59,12 +62,17 @@ export function StudentOverviewPage() {
         </div>
 
         <div className="lg:col-span-2 space-y-6">
-          <StreakWidget />
-          <WeeklyActivityChart />
+          <StreakWidget
+            streak={summary.streak}
+            longestStreak={summary.longestStreak}
+            weeklyHours={summary.weeklyHours}
+            weeklyGoal={summary.weeklyGoal}
+          />
+          <WeeklyActivityChart data={workspace.weeklyLearning} weeklyHours={summary.weeklyHours} weeklyGoal={summary.weeklyGoal} />
         </div>
       </div>
 
-      <UpcomingActivitiesList activities={upcomingActivities} />
+      <UpcomingActivitiesList activities={workspace.upcomingActivities} />
     </div>
   )
 }

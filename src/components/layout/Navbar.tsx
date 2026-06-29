@@ -63,29 +63,30 @@ export function Navbar() {
             <SearchBar size="md" placeholder="Search courses, certifications..." />
           </div>
 
-          <div className="ml-auto lg:ml-0 flex items-center gap-2">
+          <div className="ml-auto lg:ml-0 flex items-center gap-1.5 sm:gap-2">
             {isAuthenticated ? (
               <>
                 <Button to={dashboardPath} variant="ghost" size="md" className="hidden sm:inline-flex">
                   Dashboard
                 </Button>
-                <Button to={dashboardPath} variant="primary" size="md">
-                  Continue learning
+                <Button to={dashboardPath} variant="primary" size="md" className="!px-3 sm:!px-5">
+                  <span className="sm:hidden">Dashboard</span>
+                  <span className="hidden sm:inline">Continue learning</span>
                 </Button>
               </>
             ) : (
               <>
                 <Button to="/login" variant="ghost" size="md" className="hidden sm:inline-flex">
-                  Log in
+                  Login
                 </Button>
-                <Button to="/register" variant="primary" size="md">
+                <Button to="/register" variant="primary" size="md" className="!px-3 sm:!px-5">
                   Get started
                 </Button>
               </>
             )}
             <button
               type="button"
-              className="inline-flex rounded-md p-2 text-ink-2 hover:bg-stone-100 lg:hidden"
+              className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md text-ink-2 hover:bg-stone-100 lg:hidden"
               aria-expanded={mobileOpen}
               aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
               onClick={() => setMobileOpen((o) => !o)}
@@ -139,8 +140,8 @@ export function Navbar() {
                   </Button>
                 ) : (
                   <>
-                    <Button to="/login" variant="outline" size="md" className="w-full">Log in</Button>
-                    <Button to="/register" variant="primary" size="md" className="w-full">Get started free</Button>
+                    <Button to="/login" variant="outline" size="md" className="w-full">Login</Button>
+                    <Button to="/register" variant="primary" size="md" className="w-full">Get started</Button>
                   </>
                 )}
               </div>

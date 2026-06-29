@@ -18,9 +18,10 @@ export function Footer() {
             <p className="mt-4 max-w-xs text-sm text-ink-3 leading-relaxed">
               Coaching before you learn. Personalised career guidance and enterprise programs for measurable outcomes.
             </p>
-            <div className="mt-6 space-y-1 text-sm">
-              <p><span className="text-ink-4">Sales </span><a href="mailto:sales@sharvagroup.com" className="text-ink font-medium hover:text-forest-800 transition-colors">sales@sharvagroup.com</a></p>
-              <p><span className="text-ink-4">Support </span><a href="mailto:support@sharvagroup.com" className="text-ink font-medium hover:text-forest-800 transition-colors">support@sharvagroup.com</a></p>
+            <div className="mt-6 space-y-2 text-sm">
+              <p><span className="text-ink-4">Email </span><a href="mailto:contact@sgprogrowth.com" className="text-ink font-medium hover:text-forest-800 transition-colors">contact@sgprogrowth.com</a></p>
+              <p><span className="text-ink-4">WhatsApp </span><a href="https://wa.me/919152315130" className="text-ink font-medium hover:text-forest-800 transition-colors">+91 91523 15130</a></p>
+              <p className="text-xs text-ink-3 leading-relaxed pt-1">606 F wing, Hubtown Greenwoods, Vartak Nagar, Thane, MH 400606</p>
             </div>
           </div>
 
@@ -53,7 +54,7 @@ export function Footer() {
         </div>
 
         <div className="mt-12 pt-8 border-t border-stone-200 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-xs text-ink-4">© 2026 Sharva Group. All rights reserved.</p>
+          <p className="text-xs text-ink-4">© 2026 SG Pro Growth. All rights reserved.</p>
           <a href="/#top" className="text-xs font-semibold text-forest-800 hover:text-forest-900 transition-colors">Back to top ↑</a>
         </div>
       </Container>

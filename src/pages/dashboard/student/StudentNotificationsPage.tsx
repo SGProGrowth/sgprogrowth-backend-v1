@@ -1,11 +1,16 @@
-import { useState } from 'react'
-import { notifications as initialNotifications } from '../../../data/studentData'
+import { useEffect, useState } from 'react'
+import { useStudentDashboard } from '../../../hooks/useStudentDashboard'
 import { NotificationItem } from '../../../components/student/NotificationItem'
 import { PageIntro, TabBar } from '../../../components/student/Panel'
 
 export function StudentNotificationsPage() {
-  const [items, setItems] = useState(initialNotifications)
+  const { workspace } = useStudentDashboard()
+  const [items, setItems] = useState(workspace?.notifications ?? [])
   const [tab, setTab] = useState('all')
+
+  useEffect(() => {
+    setItems(workspace?.notifications ?? [])
+  }, [workspace])
 
   const unread = items.filter((n) => !n.read)
   const read = items.filter((n) => n.read)

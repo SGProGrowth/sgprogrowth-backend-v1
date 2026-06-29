@@ -119,7 +119,7 @@ export default function CoursesPage() {
             />
           </div>
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+          <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-end sm:w-auto">
             <div>
               <label htmlFor="catalog-category" className="mb-1.5 block text-sm font-semibold text-ink">
                 Category
@@ -132,7 +132,7 @@ export default function CoursesPage() {
                   setPage(1)
                   syncParams({ category: e.target.value, page: 1 })
                 }}
-                className="input-field min-w-[180px] appearance-none"
+                className="input-field w-full sm:min-w-[180px] appearance-none"
               >
                 {categories.map((cat) => (
                   <option key={cat.id} value={cat.id}>
@@ -155,7 +155,7 @@ export default function CoursesPage() {
                   setPage(1)
                   syncParams({ sort: value, page: 1 })
                 }}
-                className="input-field min-w-[180px] appearance-none"
+                className="input-field w-full sm:min-w-[180px] appearance-none"
               >
                 <option value="relevance">Most relevant</option>
                 <option value="rating">Top rated</option>

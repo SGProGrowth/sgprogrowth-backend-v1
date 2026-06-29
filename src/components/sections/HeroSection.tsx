@@ -25,11 +25,11 @@ export function HeroSection() {
             </div>
 
             <div className="mt-8 flex flex-wrap gap-3">
-              <Button to="/register" variant="gold" size="lg">
-                Start free coaching session
+              <Button to="/login" variant="secondary" size="lg">
+                Login
               </Button>
-              <Button href="#enterprise" variant="secondary" size="lg">
-                For teams
+              <Button to="/register" variant="gold" size="lg">
+                Get started
               </Button>
             </div>
 
@@ -59,7 +59,7 @@ export function HeroSection() {
                   <div>
                     <p className="text-xs font-medium text-ink-3 uppercase tracking-wider">Active program</p>
                     <p className="mt-1 text-lg font-bold text-ink">AWS Solutions Architect</p>
-                    <p className="text-sm text-ink-3 mt-0.5">Week 6 of 10 · Coach: Mahesh M.</p>
+                    <p className="text-sm text-ink-3 mt-0.5">Week 6 of 10 · Coach: Aanya Mehta</p>
                   </div>
                   <span className="shrink-0 rounded-md bg-forest-50 px-2.5 py-1 text-xs font-semibold text-forest-800">
                     68% complete

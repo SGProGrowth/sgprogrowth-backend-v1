@@ -32,7 +32,7 @@ export function Modal({ open, onClose, title, description, children, size = 'md'
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center p-4 sm:items-center">
+    <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4 safe-bottom">
       <button type="button" className="absolute inset-0 bg-ink/50 animate-rise" aria-label="Close dialog" onClick={onClose} />
       <div
         ref={panelRef}
@@ -41,9 +41,9 @@ export function Modal({ open, onClose, title, description, children, size = 'md'
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={description ? descId : undefined}
-        className={`relative w-full ${sizes[size]} rounded-xl border border-stone-200 bg-white shadow-2xl animate-rise outline-none`}
+        className={`relative flex max-h-[92dvh] w-full flex-col ${sizes[size]} rounded-t-xl border border-stone-200 bg-white shadow-2xl animate-rise outline-none sm:max-h-[85dvh] sm:rounded-xl`}
       >
-        <div className="border-b border-stone-100 px-6 py-4">
+        <div className="shrink-0 border-b border-stone-100 px-4 py-4 sm:px-6">
           <div className="flex items-start justify-between gap-4">
             <div>
               <h2 id={titleId} className="font-display text-lg font-bold text-ink">{title}</h2>
@@ -56,8 +56,12 @@ export function Modal({ open, onClose, title, description, children, size = 'md'
             </button>
           </div>
         </div>
-        <div className="max-h-[70vh] overflow-y-auto px-6 py-5">{children}</div>
-        {footer && <div className="border-t border-stone-100 px-6 py-4 flex flex-wrap justify-end gap-3">{footer}</div>}
+        <div className="min-h-0 flex-1 overflow-y-auto scroll-touch px-4 py-4 sm:px-6 sm:py-5">{children}</div>
+        {footer && (
+          <div className="shrink-0 border-t border-stone-100 px-4 py-4 flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:justify-end sm:gap-3 sm:px-6 safe-bottom">
+            {footer}
+          </div>
+        )}
       </div>
     </div>
   )

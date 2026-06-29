@@ -1,14 +1,13 @@
-import { Link, useParams } from 'react-router-dom'
-import { getCourseById } from '../../../data/instructorData'
+import { Link, useParams, Navigate } from 'react-router-dom'
+import { useInstructorCourse } from '../../../hooks/useInstructorDashboard'
 import { PageIntro } from '../../../components/dashboard/PageShell'
 import { CoursePreviewHero } from '../../../components/instructor/CourseCard'
 import { StatusBadge } from '../../../components/instructor/StatusBadge'
 import { Button } from '../../../components/ui/Button'
-import { Navigate } from 'react-router-dom'
 
 export function InstructorCoursePreviewPage() {
   const { courseId } = useParams()
-  const course = courseId ? getCourseById(courseId) : undefined
+  const course = useInstructorCourse(courseId)
 
   if (!course) return <Navigate to="/instructor/courses" replace />
 

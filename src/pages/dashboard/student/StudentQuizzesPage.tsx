@@ -1,17 +1,15 @@
 import { useState } from 'react'
-import {
-  getCompletedQuizzes,
-  getUpcomingQuizzes,
-  quizAnalytics,
-  quizzes,
-} from '../../../data/studentData'
+import { quizAnalytics } from '../../../data/studentData'
+import { useStudentDashboard } from '../../../hooks/useStudentDashboard'
 import { QuizAnalyticsPanel, QuizCard } from '../../../components/student/QuizCard'
 import { PageIntro, TabBar } from '../../../components/student/Panel'
 
 export function StudentQuizzesPage() {
+  const { workspace } = useStudentDashboard()
+  const quizzes = workspace?.quizzes ?? []
   const [tab, setTab] = useState('upcoming')
-  const upcoming = getUpcomingQuizzes()
-  const completed = getCompletedQuizzes()
+  const upcoming = quizzes.filter((q) => q.status === 'upcoming')
+  const completed = quizzes.filter((q) => q.status === 'completed')
 
   const tabs = [
     { id: 'upcoming', label: 'Upcoming', count: upcoming.length },

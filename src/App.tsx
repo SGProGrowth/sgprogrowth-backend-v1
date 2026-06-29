@@ -9,22 +9,42 @@ import { HomePage } from './pages/HomePage'
 import CoursesPage from './pages/CoursesPage'
 import CourseDetail from './pages/CourseDetail'
 import { NotFoundPage } from './pages/NotFoundPage'
-import { StudentOverviewPage } from './pages/dashboard/student/StudentOverviewPage'
-import { StudentCoursesPage } from './pages/dashboard/student/StudentCoursesPage'
-import { StudentProgressPage } from './pages/dashboard/student/StudentProgressPage'
-import { StudentAssignmentsPage } from './pages/dashboard/student/StudentAssignmentsPage'
-import { StudentQuizzesPage } from './pages/dashboard/student/StudentQuizzesPage'
-import { StudentCertificatesPage } from './pages/dashboard/student/StudentCertificatesPage'
-import { StudentNotificationsPage } from './pages/dashboard/student/StudentNotificationsPage'
-import { StudentSettingsPage } from './pages/dashboard/student/StudentSettingsPage'
-import { InstructorOverviewPage, InstructorCoursesPage } from './pages/dashboard/instructor/InstructorOverviewPage'
-import { InstructorCourseEditorPage } from './pages/dashboard/instructor/InstructorCourseEditorPage'
-import { InstructorCoursePreviewPage } from './pages/dashboard/instructor/InstructorCoursePreviewPage'
-import { InstructorStudentsPage, InstructorStudentProgressPage } from './pages/dashboard/instructor/InstructorStudentsPage'
-import { InstructorGradesPage } from './pages/dashboard/instructor/InstructorGradesPage'
-import { InstructorCoachingPage, InstructorAnnouncementsPage, InstructorMessagesPage } from './pages/dashboard/instructor/InstructorCommunicationsPage'
-import { InstructorNotificationsPage, InstructorCalendarPage, InstructorAnalyticsPage } from './pages/dashboard/instructor/InstructorInsightsPage'
-import { InstructorProfilePage, InstructorSettingsPage } from './pages/dashboard/instructor/InstructorAccountPage'
+import {
+  StudentOverviewPage,
+  StudentCoursesPage,
+  StudentProgressPage,
+  StudentAssignmentsPage,
+  StudentQuizzesPage,
+  StudentCertificatesPage,
+  StudentNotificationsPage,
+  StudentSettingsPage,
+  StudentCalendarPage,
+  StudentBatchesPage,
+  StudentCoachingPage,
+  StudentMessagesPage,
+  StudentDownloadsPage,
+  InstructorOverviewPage,
+  InstructorCoursesPage,
+  InstructorCourseEditorPage,
+  InstructorCoursePreviewPage,
+  InstructorStudentsPage,
+  InstructorStudentProgressPage,
+  InstructorGradesPage,
+  InstructorCoachingPage,
+  InstructorAnnouncementsPage,
+  InstructorMessagesPage,
+  InstructorNotificationsPage,
+  InstructorCalendarPage,
+  InstructorAnalyticsPage,
+  InstructorProfilePage,
+  InstructorSettingsPage,
+  InstructorAssignmentsPage,
+  InstructorQuizzesPage,
+  InstructorQuestionBankPage,
+  InstructorBatchesPage,
+  InstructorBulkImportPage,
+  InstructorEarningsPage,
+} from './routes/dashboardPages'
 
 function App() {
   return (
@@ -64,11 +84,14 @@ function App() {
             <Route path="certificates" element={<StudentCertificatesPage />} />
             <Route path="notifications" element={<StudentNotificationsPage />} />
             <Route path="settings" element={<StudentSettingsPage />} />
-            <Route path="coaching" element={<Navigate to="/dashboard" replace />} />
+            <Route path="calendar" element={<StudentCalendarPage />} />
+            <Route path="batches" element={<StudentBatchesPage />} />
+            <Route path="coaching" element={<StudentCoachingPage />} />
+            <Route path="messages" element={<StudentMessagesPage />} />
+            <Route path="downloads" element={<StudentDownloadsPage />} />
             <Route path="roadmap" element={<Navigate to="/dashboard/progress" replace />} />
             <Route path="certifications" element={<Navigate to="/dashboard/progress" replace />} />
-            <Route path="schedule" element={<Navigate to="/dashboard" replace />} />
-            <Route path="messages" element={<Navigate to="/dashboard/notifications" replace />} />
+            <Route path="schedule" element={<Navigate to="/dashboard/calendar" replace />} />
             <Route path="*" element={<NotFoundPage />} />
           </Route>
 
@@ -87,8 +110,13 @@ function App() {
             <Route path="courses/:courseId/edit" element={<InstructorCourseEditorPage />} />
             <Route path="courses/:courseId/preview" element={<InstructorCoursePreviewPage />} />
             <Route path="students" element={<InstructorStudentsPage />} />
+            <Route path="students/import" element={<InstructorBulkImportPage />} />
             <Route path="students/:studentId" element={<InstructorStudentProgressPage />} />
             <Route path="grades" element={<InstructorGradesPage />} />
+            <Route path="assignments" element={<InstructorAssignmentsPage />} />
+            <Route path="quizzes" element={<InstructorQuizzesPage />} />
+            <Route path="question-bank" element={<InstructorQuestionBankPage />} />
+            <Route path="batches" element={<InstructorBatchesPage />} />
             <Route path="coaching" element={<InstructorCoachingPage />} />
             <Route path="announcements" element={<InstructorAnnouncementsPage />} />
             <Route path="messages" element={<InstructorMessagesPage />} />
@@ -98,7 +126,7 @@ function App() {
             <Route path="profile" element={<InstructorProfilePage />} />
             <Route path="settings" element={<InstructorSettingsPage />} />
             <Route path="reviews" element={<Navigate to="/instructor/analytics" replace />} />
-            <Route path="earnings" element={<Navigate to="/instructor/analytics" replace />} />
+            <Route path="earnings" element={<InstructorEarningsPage />} />
             <Route path="content" element={<Navigate to="/instructor/courses" replace />} />
             <Route path="*" element={<NotFoundPage />} />
           </Route>

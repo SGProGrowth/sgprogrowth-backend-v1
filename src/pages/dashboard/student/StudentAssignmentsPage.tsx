@@ -1,11 +1,13 @@
 import { useState } from 'react'
-import { assignments, getPendingAssignments } from '../../../data/studentData'
+import { useStudentDashboard } from '../../../hooks/useStudentDashboard'
 import { AssignmentRow } from '../../../components/student/AssignmentRow'
 import { PageIntro, TabBar, StatTile } from '../../../components/student/Panel'
 
 export function StudentAssignmentsPage() {
+  const { workspace } = useStudentDashboard()
+  const assignments = workspace?.assignments ?? []
   const [tab, setTab] = useState('upcoming')
-  const pending = getPendingAssignments()
+  const pending = assignments.filter((a) => a.status === 'pending')
   const submitted = assignments.filter((a) => a.status === 'submitted')
   const graded = assignments.filter((a) => a.status === 'graded')
   const overdue = assignments.filter((a) => a.status === 'overdue')
@@ -29,7 +31,7 @@ export function StudentAssignmentsPage() {
         description="Submit projects, labs, and reflections on time. Your coach reviews submissions and provides actionable feedback."
       />
 
-      <div className="mb-8 grid gap-4 sm:grid-cols-3">
+      <div className="stat-grid-3 mb-6 sm:mb-8">
         <StatTile label="Pending" value={pending.length} hint="Awaiting submission" />
         <StatTile label="Overdue" value={overdue.length} hint={overdue.length > 0 ? 'Action required' : 'All caught up'} />
         <StatTile label="Average score" value="96%" hint="On graded assignments" />

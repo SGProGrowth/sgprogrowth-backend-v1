@@ -5,6 +5,12 @@ import { getDashboardBasePath } from '../../data/dashboardData'
 import { AuthLayout } from '../../layouts/AuthLayout'
 import { Button } from '../../components/ui/Button'
 
+interface AuthLocationState {
+  from?: string
+  registered?: boolean
+  email?: string
+}
+
 interface SignInPageProps {
   role: UserRole
 }
@@ -12,11 +18,13 @@ interface SignInPageProps {
 export function SignInPage({ role }: SignInPageProps) {
   const navigate = useNavigate()
   const location = useLocation()
+  const locationState = location.state as AuthLocationState | null
   const { signIn } = useAuth()
-  const [email, setEmail] = useState('')
+  const [email, setEmail] = useState(locationState?.email ?? '')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const registered = locationState?.registered === true
 
   const roleLabel = role === 'student' ? 'Student' : 'Instructor'
 
@@ -53,6 +61,12 @@ export function SignInPage({ role }: SignInPageProps) {
       backHref="/login"
       backLabel="Choose different role"
     >
+      {registered && (
+        <p className="mb-5 rounded-md border border-forest-200 bg-forest-50 px-4 py-3 text-sm text-forest-900">
+          Your account was created successfully. Sign in with your email and password to continue.
+        </p>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-5">
         <div>
           <label htmlFor="email" className="mb-1.5 block text-sm font-semibold text-ink">
@@ -62,7 +76,7 @@ export function SignInPage({ role }: SignInPageProps) {
             id="email"
             type="email"
             autoComplete="email"
-            placeholder={role === 'instructor' ? 'you@sharvagroup.com' : 'you@example.com'}
+            placeholder={role === 'instructor' ? 'instructor@example.com' : 'you@example.com'}
             className="input-field w-full"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -147,7 +161,10 @@ export function RegisterPage({ role }: RegisterPageProps) {
     setLoading(true)
     try {
       await register(name, email, password, role)
-      navigate(getDashboardBasePath(role), { replace: true })
+      navigate(`/login/${role}`, {
+        replace: true,
+        state: { registered: true, email: email.trim() },
+      })
     } catch {
       setError('Unable to create account. Please try again.')
     } finally {
@@ -190,7 +207,7 @@ export function RegisterPage({ role }: RegisterPageProps) {
             id="email"
             type="email"
             autoComplete="email"
-            placeholder={role === 'instructor' ? 'you@sharvagroup.com' : 'you@example.com'}
+            placeholder={role === 'instructor' ? 'instructor@example.com' : 'you@example.com'}
             className="input-field w-full"
             value={email}
             onChange={(e) => setEmail(e.target.value)}

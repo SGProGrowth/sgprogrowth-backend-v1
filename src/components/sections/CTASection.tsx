@@ -80,8 +80,8 @@ export function CTASection() {
             <Link to="/register" className="text-sm font-semibold text-forest-800 hover:text-forest-900 mr-4">
               Create an account →
             </Link>
-            <Button href="mailto:sales@sharvagroup.com" variant="ghost" size="md">
-              Email sales@sharvagroup.com
+            <Button href="mailto:contact@sgprogrowth.com" variant="ghost" size="md">
+              Email contact@sgprogrowth.com
             </Button>
           </div>
         </div>

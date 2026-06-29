@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { useAuth } from '../../../contexts/AuthContext'
+import { useStudentDashboard } from '../../../hooks/useStudentDashboard'
 import { defaultLearningPreferences } from '../../../data/studentData'
 import { PageIntro, Panel } from '../../../components/student/Panel'
 import { Button } from '../../../components/ui/Button'
 
 export function StudentSettingsPage() {
   const { user } = useAuth()
+  const { profile } = useStudentDashboard()
   const [prefs, setPrefs] = useState(defaultLearningPreferences)
   const [saved, setSaved] = useState(false)
 
@@ -30,7 +32,7 @@ export function StudentSettingsPage() {
 
       <div className="space-y-6">
         <Panel title="Profile">
-          <div className="flex items-start gap-5">
+          <div className="flex flex-col items-start gap-5 sm:flex-row sm:items-start">
             <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-forest-100 text-xl font-bold text-forest-800">
               {user?.avatarInitials}
             </div>
@@ -45,7 +47,15 @@ export function StudentSettingsPage() {
               </div>
               <div>
                 <label htmlFor="bio" className="mb-1.5 block text-sm font-semibold text-ink">Professional headline</label>
-                <input id="bio" type="text" defaultValue="Aspiring Cloud Engineer" className="input-field w-full" placeholder="e.g. Software Engineer · AWS track" />
+                <input id="bio" type="text" defaultValue={profile?.title ?? ''} className="input-field w-full" placeholder="e.g. Software Engineer · AWS track" />
+              </div>
+              <div>
+                <label htmlFor="org" className="mb-1.5 block text-sm font-semibold text-ink">Organization</label>
+                <input id="org" type="text" defaultValue={profile?.organization ?? ''} className="input-field w-full" />
+              </div>
+              <div>
+                <label htmlFor="phone" className="mb-1.5 block text-sm font-semibold text-ink">Phone</label>
+                <input id="phone" type="tel" defaultValue={profile?.phone ?? ''} className="input-field w-full" />
               </div>
             </div>
           </div>
@@ -138,8 +148,8 @@ export function StudentSettingsPage() {
           </div>
         </Panel>
 
-        <div className="flex items-center gap-4">
-          <Button variant="primary" size="md" onClick={handleSave}>Save changes</Button>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+          <Button variant="primary" size="md" className="w-full sm:w-auto" onClick={handleSave}>Save changes</Button>
           {saved && <span className="text-sm font-semibold text-forest-700">Settings saved</span>}
         </div>
       </div>

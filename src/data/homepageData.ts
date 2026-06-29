@@ -147,8 +147,8 @@ export const featuredCourses: Course[] = [
   {
     id: 'bni-trainers',
     title: 'BNI-Trainers and Coaches Power Team',
-    instructor: 'Mahesh M. · Sharva Group',
-    instructorUrl: 'https://sharvaconsulting.com/members-directory/maheshmdsharvagroup-com/',
+    instructor: 'Aanya Mehta · SG Pro Growth',
+    instructorUrl: 'https://sgprogrowth.com/members-directory/aanya-mehta',
     rating: 4.8,
     reviewCount: 124,
     badge: 'Private',
@@ -162,8 +162,8 @@ export const featuredCourses: Course[] = [
   {
     id: 'it-project-management',
     title: 'IT Project Management Professional',
-    instructor: 'Mahesh M. · Sharva Group',
-    instructorUrl: 'https://sharvaconsulting.com/members-directory/maheshmdsharvagroup-com/',
+    instructor: 'Rohan Kapoor · SG Pro Growth',
+    instructorUrl: 'https://sgprogrowth.com/members-directory/rohan-kapoor',
     rating: 4.6,
     reviewCount: 89,
     price: '₹4,999',
@@ -177,8 +177,8 @@ export const featuredCourses: Course[] = [
   {
     id: 'aws-solutions-architect',
     title: 'AWS Solutions Architect Certification Prep',
-    instructor: 'Cloud Academy · Sharva Group',
-    instructorUrl: 'https://sharvaconsulting.com/members-directory/maheshmdsharvagroup-com/',
+    instructor: 'Cloud Academy · SG Pro Growth',
+    instructorUrl: 'https://sgprogrowth.com/members-directory/aanya-mehta',
     rating: 4.9,
     reviewCount: 256,
     price: '₹8,999',
@@ -193,8 +193,8 @@ export const featuredCourses: Course[] = [
   {
     id: 'agile-scrum-master',
     title: 'Certified Scrum Master (CSM) Prep',
-    instructor: 'Agile Institute · Sharva Group',
-    instructorUrl: 'https://sharvaconsulting.com/members-directory/maheshmdsharvagroup-com/',
+    instructor: 'Agile Institute · SG Pro Growth',
+    instructorUrl: 'https://sgprogrowth.com/members-directory/aanya-mehta',
     rating: 4.7,
     reviewCount: 178,
     price: '₹6,499',
@@ -208,8 +208,8 @@ export const featuredCourses: Course[] = [
   {
     id: 'data-analytics-pro',
     title: 'Google Data Analytics Professional Certificate',
-    instructor: 'Data Labs · Sharva Group',
-    instructorUrl: 'https://sharvaconsulting.com/members-directory/maheshmdsharvagroup-com/',
+    instructor: 'Sneha Desai · SG Pro Growth',
+    instructorUrl: 'https://sgprogrowth.com/members-directory/sneha-desai',
     rating: 4.8,
     reviewCount: 312,
     price: '₹5,999',
@@ -223,8 +223,8 @@ export const featuredCourses: Course[] = [
   {
     id: 'demo-course',
     title: 'Career Discovery & Coaching Session',
-    instructor: 'Kanchi Shah · Sharva Group',
-    instructorUrl: 'https://sharvaconsulting.com/members-directory/ut35480gmail-com/',
+    instructor: 'Career Coaching Team · SG Pro Growth',
+    instructorUrl: 'https://sgprogrowth.com/members-directory/',
     rating: 5.0,
     reviewCount: 45,
     ctaLabel: 'Apply to enroll',
@@ -398,9 +398,9 @@ export const footerLinks = {
     { label: 'Contact Us', href: '/#contact' },
   ],
   legal: [
-    { label: 'Refund and Returns Policy', href: 'https://sharvaconsulting.com/refund_returns/' },
-    { label: 'Privacy Policy', href: 'https://sharvaconsulting.com/privacy-policy/' },
-    { label: 'Terms of Service', href: 'https://sharvaconsulting.com/terms-of-service/' },
+    { label: 'Refund and Returns Policy', href: 'https://sgprogrowth.com/refund_returns/' },
+    { label: 'Privacy Policy', href: 'https://sgprogrowth.com/privacy-policy/' },
+    { label: 'Terms of Service', href: 'https://sgprogrowth.com/terms-of-service/' },
   ],
 }
 

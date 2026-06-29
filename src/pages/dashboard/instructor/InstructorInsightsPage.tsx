@@ -1,10 +1,16 @@
-import { useState } from 'react'
-import { analyticsData, calendarEvents, instructorNotifications } from '../../../data/instructorData'
+import { useEffect, useState } from 'react'
+import { useInstructorDashboard } from '../../../hooks/useInstructorDashboard'
 import { PageIntro, Panel, StatTile } from '../../../components/dashboard/PageShell'
 import { Button } from '../../../components/ui/Button'
 
 export function InstructorNotificationsPage() {
-  const [items, setItems] = useState(instructorNotifications)
+  const { workspace } = useInstructorDashboard()
+  const [items, setItems] = useState(workspace?.notifications ?? [])
+
+  useEffect(() => {
+    setItems(workspace?.notifications ?? [])
+  }, [workspace])
+
   const unread = items.filter((n) => !n.read)
 
   return (
@@ -39,6 +45,14 @@ export function InstructorNotificationsPage() {
 const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
 export function InstructorCalendarPage() {
+  const { workspace } = useInstructorDashboard()
+  const calendarEvents = workspace?.calendarEvents ?? []
+  const eventDays = new Set(
+    calendarEvents
+      .map((e) => parseInt(e.date.split(' ')[1]?.replace(',', '') ?? '', 10))
+      .filter((d) => !Number.isNaN(d)),
+  )
+
   return (
     <div className="animate-rise">
       <PageIntro eyebrow="Schedule" title="Calendar" description="Coaching sessions, deadlines, and live events." action={<Button variant="primary" size="md">+ Add event</Button>} />
@@ -51,7 +65,7 @@ export function InstructorCalendarPage() {
           <div className="grid grid-cols-7 gap-1">
             {Array.from({ length: 35 }, (_, i) => {
               const day = i - 2
-              const hasEvent = [25, 26, 27, 28, 30].includes(day)
+              const hasEvent = eventDays.has(day)
               return (
                 <div key={i} className={`aspect-square rounded-md flex items-center justify-center text-sm ${day < 1 || day > 30 ? 'text-ink-4/30' : hasEvent ? 'bg-forest-100 font-bold text-forest-800' : 'hover:bg-stone-100 text-ink-2'}`}>
                   {day >= 1 && day <= 30 ? day : ''}
@@ -78,8 +92,22 @@ export function InstructorCalendarPage() {
 }
 
 export function InstructorAnalyticsPage() {
-  const { enrollmentTrend, completionTrend, revenueTrend, engagementRate, avgSessionRating, topCourses } = analyticsData
-  const maxEnroll = Math.max(...enrollmentTrend)
+  const { workspace } = useInstructorDashboard()
+  const analytics = workspace?.analytics
+  const summary = workspace?.summary
+
+  if (!analytics || !summary) {
+    return (
+      <div className="animate-rise rounded-xl border border-stone-200 bg-white px-6 py-12 text-center">
+        <p className="font-display text-base font-bold text-ink">Analytics unavailable</p>
+        <p className="mt-2 text-sm text-ink-3">Sign in with a registered instructor account.</p>
+      </div>
+    )
+  }
+
+  const { enrollmentTrend, completionTrend, revenueTrend, engagementRate, avgSessionRating, topCourses } = analytics
+  const maxEnroll = Math.max(...enrollmentTrend, 1)
+  const maxRevenue = Math.max(...revenueTrend, 1)
 
   return (
     <div className="animate-rise">
@@ -88,8 +116,8 @@ export function InstructorAnalyticsPage() {
       <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile label="Engagement rate" value={`${engagementRate}%`} hint="Active learners this month" />
         <StatTile label="Session rating" value={avgSessionRating} hint="Coaching satisfaction" />
-        <StatTile label="Monthly revenue" value="₹12,480" hint="+8% vs last month" />
-        <StatTile label="New enrollments" value="28" hint="Last 30 days" />
+        <StatTile label="Monthly revenue" value={summary.monthlyRevenue} hint="Current period" />
+        <StatTile label="New enrollments" value={summary.newEnrollments} hint="Last 30 days" />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -119,7 +147,7 @@ export function InstructorAnalyticsPage() {
           <div className="flex items-end gap-2 h-32">
             {revenueTrend.map((v, i) => (
               <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                <div className="w-full rounded-sm bg-forest-800" style={{ height: `${(v / 12480) * 100}%`, minHeight: 8 }} />
+                <div className="w-full rounded-sm bg-forest-800" style={{ height: `${(v / maxRevenue) * 100}%`, minHeight: 8 }} />
                 <span className="text-[10px] text-ink-4">W{i + 1}</span>
               </div>
             ))}

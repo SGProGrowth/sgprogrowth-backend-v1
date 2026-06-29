@@ -1,11 +1,11 @@
 import { useState } from 'react'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams, Navigate } from 'react-router-dom'
 import {
   categories,
   defaultCourseDraft,
-  getCourseById,
   type InstructorCourse,
 } from '../../../data/instructorData'
+import { useInstructorCourse, useInstructorDashboard } from '../../../hooks/useInstructorDashboard'
 import { PageIntro, TabBar } from '../../../components/dashboard/PageShell'
 import { FormField, FormSection, SelectField, TextAreaField, ToggleField } from '../../../components/instructor/FormField'
 import { UploadZone } from '../../../components/instructor/UploadZone'
@@ -27,8 +27,9 @@ export function InstructorCourseEditorPage() {
   const { courseId } = useParams()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
+  const { profile } = useInstructorDashboard()
   const isNew = !courseId || courseId === 'new'
-  const existing = courseId && !isNew ? getCourseById(courseId) : undefined
+  const existing = useInstructorCourse(isNew ? undefined : courseId)
 
   const [tab, setTab] = useState(searchParams.get('tab') ?? 'basics')
   const [saved, setSaved] = useState(false)
@@ -37,7 +38,18 @@ export function InstructorCourseEditorPage() {
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   const [course, setCourse] = useState<Partial<InstructorCourse>>(
-    existing ?? { ...defaultCourseDraft, id: 'new', modules: [], students: 0, completion: 0, rating: 0, reviewCount: 0, revenue: '—', updatedAt: 'Today' },
+    existing ?? {
+      ...defaultCourseDraft,
+      id: 'new',
+      instructorId: profile?.id ?? '',
+      modules: [],
+      students: 0,
+      completion: 0,
+      rating: 0,
+      reviewCount: 0,
+      revenue: '—',
+      updatedAt: 'Today',
+    },
   )
 
   const update = (patch: Partial<InstructorCourse>) => setCourse((c) => ({ ...c, ...patch }))
@@ -69,6 +81,10 @@ export function InstructorCourseEditorPage() {
 
   const addOutcome = () => update({ learningOutcomes: [...(course.learningOutcomes ?? []), ''] })
   const addRequirement = () => update({ requirements: [...(course.requirements ?? []), ''] })
+
+  if (!isNew && courseId && !existing) {
+    return <Navigate to="/instructor/courses" replace />
+  }
 
   return (
     <div className="animate-rise">

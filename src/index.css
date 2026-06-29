@@ -72,10 +72,13 @@
   html {
     scroll-behavior: smooth;
     scroll-padding-top: 4.5rem;
+    overflow-x: hidden;
   }
 
   body {
     @apply bg-stone-50 font-sans text-[15px] leading-relaxed text-ink-2 antialiased;
+    overflow-x: hidden;
+    -webkit-tap-highlight-color: transparent;
   }
 
   h1, h2, h3, h4 {
@@ -94,7 +97,7 @@
   }
 
   .text-display-lg {
-    @apply font-display text-[1.75rem] font-bold leading-[1.15] tracking-[-0.02em] sm:text-[2.25rem];
+    @apply font-display text-[1.5rem] font-bold leading-[1.15] tracking-[-0.02em] sm:text-[1.75rem] md:text-[2.25rem];
   }
 
   .text-display-md {
@@ -167,5 +170,53 @@
 
   .animate-rise {
     animation: rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .table-scroll {
+    @apply -mx-3 overflow-x-auto overscroll-x-contain px-3 sm:mx-0 sm:px-0;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .scroll-touch {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .page-actions {
+    @apply flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center;
+  }
+
+  .page-actions > *,
+  .page-actions a:only-child,
+  .page-actions > button,
+  .page-actions .btn-primary,
+  .page-actions .btn-secondary {
+    @apply w-full sm:w-auto;
+  }
+
+  .stat-grid {
+    @apply grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-3 lg:grid-cols-4;
+  }
+
+  .stat-grid-3 {
+    @apply grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3;
+  }
+
+  .sr-only {
+    @apply absolute -m-px h-px w-px overflow-hidden whitespace-nowrap border-0 p-0;
+    clip: rect(0, 0, 0, 0);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-rise {
+      animation: none;
+    }
+
+    html {
+      scroll-behavior: auto;
+    }
   }
 }

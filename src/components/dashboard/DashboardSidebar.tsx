@@ -1,9 +1,14 @@
 import { useEffect, useState } from 'react'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth, type UserRole } from '../../contexts/AuthContext'
-import { getDashboardNav, type NavSection } from '../../data/dashboardData'
-import { unreadNotificationCount } from '../../data/studentData'
-import { unreadInstructorNotifications } from '../../data/instructorData'
+import { type NavSection } from '../../data/dashboardData'
+import { buildInstructorNav, buildStudentNav } from '../../lib/dashboardNav'
+import {
+  useDashboardNotifications,
+  useDashboardWorkspaceContext,
+} from '../../contexts/DashboardWorkspaceContext'
+import type { InstructorWorkspace } from '../../lib/instructorWorkspace'
+import type { StudentWorkspace } from '../../lib/studentWorkspace'
 import { NavIconSvg } from './NavIcon'
 
 interface DashboardSidebarProps {
@@ -36,7 +41,7 @@ function SidebarNav({ sections, onNavigate }: { sections: NavSection[]; onNaviga
               const active = isActive(item.href)
               const isExternal = item.href.startsWith('/courses')
 
-              const linkClass = `group flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors ${
+              const linkClass = `group flex min-h-11 items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors ${
                 active
                   ? 'bg-forest-800 text-white'
                   : 'text-ink-2 hover:bg-stone-100 hover:text-ink'
@@ -85,8 +90,18 @@ function SidebarNav({ sections, onNavigate }: { sections: NavSection[]; onNaviga
 export function DashboardSidebar({ role, open, onClose }: DashboardSidebarProps) {
   const navigate = useNavigate()
   const { user, signOut } = useAuth()
-  const sections = getDashboardNav(role)
+  const { workspace } = useDashboardWorkspaceContext()
+  const sections = role === 'instructor'
+    ? buildInstructorNav(workspace as InstructorWorkspace)
+    : buildStudentNav(workspace as StudentWorkspace)
   const basePath = role === 'instructor' ? '/instructor' : '/dashboard'
+
+  useEffect(() => {
+    if (!open) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = prev }
+  }, [open])
 
   return (
     <>
@@ -100,12 +115,12 @@ export function DashboardSidebar({ role, open, onClose }: DashboardSidebarProps)
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-[260px] flex-col border-r border-stone-200 bg-white transition-transform duration-200 lg:static lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-[min(280px,88vw)] flex-col border-r border-stone-200 bg-white transition-transform duration-200 lg:static lg:w-[260px] lg:translate-x-0 ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="flex h-16 items-center gap-2.5 border-b border-stone-200 px-5">
-          <Link to={basePath} className="flex items-center gap-2.5" onClick={onClose}>
+        <div className="flex h-16 items-center justify-between gap-2 border-b border-stone-200 px-4 sm:px-5">
+          <Link to={basePath} className="flex min-w-0 items-center gap-2.5" onClick={onClose}>
             <div className="flex h-9 w-9 items-center justify-center rounded-md bg-forest-800">
               <span className="text-sm font-bold text-white tracking-tight">SG</span>
             </div>
@@ -116,6 +131,16 @@ export function DashboardSidebar({ role, open, onClose }: DashboardSidebarProps)
               </span>
             </div>
           </Link>
+          <button
+            type="button"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md text-ink-3 hover:bg-stone-100 lg:hidden"
+            aria-label="Close menu"
+            onClick={onClose}
+          >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
 
         <SidebarNav sections={sections} onNavigate={onClose} />
@@ -173,6 +198,7 @@ export function DashboardHeader({
 }) {
   const navigate = useNavigate()
   const { user, signOut } = useAuth()
+  const unreadNotifications = useDashboardNotifications()
   const [showUserMenu, setShowUserMenu] = useState(false)
 
   useEffect(() => {
@@ -184,10 +210,10 @@ export function DashboardHeader({
 
   return (
     <header className="sticky top-0 z-30 border-b border-stone-200 bg-white/95 backdrop-blur-sm">
-      <div className="flex h-16 items-center gap-4 px-4 md:px-6 lg:px-8">
+      <div className="flex h-14 min-h-14 items-center gap-2 px-3 sm:h-16 sm:gap-4 sm:px-4 md:px-6 lg:px-8">
         <button
           type="button"
-          className="inline-flex rounded-md p-2 text-ink-2 hover:bg-stone-100 lg:hidden"
+          className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md text-ink-2 hover:bg-stone-100 lg:hidden"
           aria-label="Open menu"
           onClick={onMenuClick}
         >
@@ -197,8 +223,8 @@ export function DashboardHeader({
         </button>
 
         <div className="min-w-0 flex-1">
-          <p className="truncate font-display text-lg font-bold text-ink md:text-xl">{title}</p>
-          {subtitle && <p className="truncate text-sm text-ink-3">{subtitle}</p>}
+          <p className="truncate font-display text-base font-bold text-ink sm:text-lg md:text-xl">{title}</p>
+          {subtitle && <p className="hidden truncate text-sm text-ink-3 sm:block">{subtitle}</p>}
         </div>
 
         <div className="hidden md:block flex-1 max-w-sm">
@@ -222,14 +248,14 @@ export function DashboardHeader({
 
         <Link
           to={notificationsPath}
-          className="relative rounded-md p-2 text-ink-2 hover:bg-stone-100"
+          className="relative inline-flex min-h-11 min-w-11 items-center justify-center rounded-md text-ink-2 hover:bg-stone-100"
           aria-label="Notifications"
         >
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
           </svg>
           {showNotifications && (() => {
-            const count = notificationsPath.includes('/instructor') ? unreadInstructorNotifications : unreadNotificationCount
+            const count = unreadNotifications
             return count > 0 ? (
               <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-gold-500 text-[9px] font-bold text-white">
                 {count}
@@ -241,7 +267,7 @@ export function DashboardHeader({
         <div className="relative">
           <button
             type="button"
-            className="flex items-center gap-2 rounded-md p-1.5 hover:bg-stone-100"
+            className="flex min-h-11 items-center gap-2 rounded-md p-1.5 hover:bg-stone-100"
             onClick={(e) => {
               e.stopPropagation()
               setShowUserMenu((v) => !v)

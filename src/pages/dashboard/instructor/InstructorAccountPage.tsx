@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { instructorProfile } from '../../../data/instructorData'
+import { useInstructorDashboard } from '../../../hooks/useInstructorDashboard'
 import { PageIntro, Panel } from '../../../components/dashboard/PageShell'
 import { FormField, TextAreaField } from '../../../components/instructor/FormField'
 import { UploadZone } from '../../../components/instructor/UploadZone'
@@ -7,7 +7,19 @@ import { SuccessBanner } from '../../../components/instructor/Modal'
 import { Button } from '../../../components/ui/Button'
 
 export function InstructorProfilePage() {
+  const { profile, workspace } = useInstructorDashboard()
   const [saved, setSaved] = useState(false)
+
+  if (!profile || !workspace) {
+    return (
+      <div className="animate-rise rounded-xl border border-stone-200 bg-white px-6 py-12 text-center">
+        <p className="font-display text-base font-bold text-ink">Profile unavailable</p>
+        <p className="mt-2 text-sm text-ink-3">Sign in with a registered instructor account.</p>
+      </div>
+    )
+  }
+
+  const { summary } = workspace
 
   return (
     <div className="animate-rise max-w-3xl">
@@ -22,21 +34,34 @@ export function InstructorProfilePage() {
 
         <Panel title="Professional info">
           <div className="space-y-4">
-            <FormField label="Display name" defaultValue={instructorProfile.name} />
-            <FormField label="Professional title" defaultValue={instructorProfile.title} />
-            <TextAreaField label="Bio" defaultValue={instructorProfile.bio} rows={5} />
-            <FormField label="Public profile URL" defaultValue={instructorProfile.publicUrl} hint="Sharva Group members directory link" />
+            <FormField label="Display name" defaultValue={profile.name} />
+            <FormField label="Email" defaultValue={profile.email} type="email" />
+            <FormField label="Phone" defaultValue={profile.phone} />
+            <FormField label="Organization" defaultValue={profile.organization} />
+            <FormField label="Designation" defaultValue={profile.designation} />
+            <FormField label="Professional title" defaultValue={profile.title} />
+            <FormField label="Experience" defaultValue={profile.experience} />
+            <TextAreaField label="Bio" defaultValue={profile.bio} rows={5} />
+            <FormField label="Public profile URL" defaultValue={profile.publicUrl} hint="Members directory link" />
+          </div>
+        </Panel>
+
+        <Panel title="Skills">
+          <div className="flex flex-wrap gap-2">
+            {profile.skills.map((skill) => (
+              <span key={skill} className="rounded-md bg-gold-50 px-3 py-1.5 text-xs font-semibold text-gold-900">{skill}</span>
+            ))}
           </div>
         </Panel>
 
         <Panel title="Expertise & credentials">
           <div className="flex flex-wrap gap-2 mb-4">
-            {instructorProfile.expertise.map((e) => (
+            {profile.expertise.map((e) => (
               <span key={e} className="rounded-md bg-forest-50 px-3 py-1.5 text-xs font-semibold text-forest-800">{e}</span>
             ))}
           </div>
           <div className="flex flex-wrap gap-2">
-            {instructorProfile.credentials.map((c) => (
+            {profile.credentials.map((c) => (
               <span key={c} className="rounded-md bg-stone-100 px-3 py-1.5 text-xs font-semibold text-ink-2">{c}</span>
             ))}
           </div>
@@ -44,9 +69,10 @@ export function InstructorProfilePage() {
 
         <Panel title="Teaching stats">
           <div className="grid gap-4 sm:grid-cols-3">
-            <div><p className="text-xs text-ink-3">Total students</p><p className="font-display text-2xl font-bold text-ink">{instructorProfile.totalStudents}</p></div>
-            <div><p className="text-xs text-ink-3">Courses published</p><p className="font-display text-2xl font-bold text-ink">{instructorProfile.coursesPublished}</p></div>
-            <div><p className="text-xs text-ink-3">Average rating</p><p className="font-display text-2xl font-bold text-ink">★ {instructorProfile.avgRating}</p></div>
+            <div><p className="text-xs text-ink-3">Students enrolled</p><p className="font-display text-2xl font-bold text-ink">{summary.studentsEnrolled}</p></div>
+            <div><p className="text-xs text-ink-3">Courses created</p><p className="font-display text-2xl font-bold text-ink">{summary.coursesCreated}</p></div>
+            <div><p className="text-xs text-ink-3">Courses published</p><p className="font-display text-2xl font-bold text-ink">{summary.coursesPublished}</p></div>
+            <div><p className="text-xs text-ink-3">Average rating</p><p className="font-display text-2xl font-bold text-ink">★ {profile.avgRating}</p></div>
           </div>
         </Panel>
 
@@ -57,6 +83,7 @@ export function InstructorProfilePage() {
 }
 
 export function InstructorSettingsPage() {
+  const { profile } = useInstructorDashboard()
   const [saved, setSaved] = useState(false)
 
   return (
@@ -66,6 +93,14 @@ export function InstructorSettingsPage() {
       {saved && <SuccessBanner message="Settings saved." onDismiss={() => setSaved(false)} />}
 
       <div className="space-y-6">
+        <Panel title="Contact information">
+          <div className="space-y-4">
+            <FormField label="Email address" defaultValue={profile?.email ?? ''} type="email" />
+            <FormField label="Phone number" defaultValue={profile?.phone ?? ''} />
+            <FormField label="Organization" defaultValue={profile?.organization ?? ''} />
+          </div>
+        </Panel>
+
         <Panel title="Payout information">
           <div className="space-y-4">
             <FormField label="Bank account name" placeholder="Account holder name" />

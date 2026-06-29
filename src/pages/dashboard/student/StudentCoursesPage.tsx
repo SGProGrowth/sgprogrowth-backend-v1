@@ -1,9 +1,6 @@
 import { useMemo, useState } from 'react'
-import {
-  getActiveCourses,
-  getCompletedCourses,
-  recommendedCourses,
-} from '../../../data/studentData'
+import { recommendedCourses } from '../../../data/studentData'
+import { useStudentDashboard } from '../../../hooks/useStudentDashboard'
 import { EnrolledCourseCard, RecommendedCourseCard } from '../../../components/student/CourseCards'
 import { PageIntro, TabBar, EmptyState } from '../../../components/student/Panel'
 import { Button } from '../../../components/ui/Button'
@@ -12,12 +9,13 @@ import { Pagination, usePagination } from '../../../components/ui/Pagination'
 const PAGE_SIZE = 6
 
 export function StudentCoursesPage() {
+  const { workspace } = useStudentDashboard()
   const [tab, setTab] = useState('active')
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(1)
 
-  const active = getActiveCourses()
-  const completed = getCompletedCourses()
+  const active = workspace?.courses.filter((c) => c.status === 'active') ?? []
+  const completed = workspace?.courses.filter((c) => c.status === 'completed') ?? []
 
   const tabs = [
     { id: 'active', label: 'Active', count: active.length },

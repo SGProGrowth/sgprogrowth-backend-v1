@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
-import type { UpcomingActivity } from '../../data/studentData'
-import { learningSummary, weeklyLearning } from '../../data/studentData'
+import type { UpcomingActivity, WeeklyLearning } from '../../data/studentData'
+import type { StudentSummary } from '../../lib/studentWorkspace'
 import { Panel } from './Panel'
 
 const activityStyles: Record<UpcomingActivity['type'], { dot: string; label?: string }> = {
@@ -12,8 +12,14 @@ const activityStyles: Record<UpcomingActivity['type'], { dot: string; label?: st
   deadline: { dot: 'bg-red-400', label: 'Deadline' },
 }
 
-export function StreakWidget() {
-  const { streak, longestStreak, weeklyHours, weeklyGoal } = learningSummary
+interface StreakWidgetProps {
+  streak: number
+  longestStreak: number
+  weeklyHours: number
+  weeklyGoal: number
+}
+
+export function StreakWidget({ streak, longestStreak, weeklyHours, weeklyGoal }: StreakWidgetProps) {
   const goalProgress = Math.min(100, Math.round((weeklyHours / weeklyGoal) * 100))
 
   return (
@@ -40,13 +46,19 @@ export function StreakWidget() {
   )
 }
 
-export function WeeklyActivityChart() {
-  const maxHours = Math.max(...weeklyLearning.map((d) => d.hours), 1)
+interface WeeklyActivityChartProps {
+  data: WeeklyLearning[]
+  weeklyHours: number
+  weeklyGoal: number
+}
+
+export function WeeklyActivityChart({ data, weeklyHours, weeklyGoal }: WeeklyActivityChartProps) {
+  const maxHours = Math.max(...data.map((d) => d.hours), 1)
 
   return (
     <Panel title="This week">
       <div className="flex items-end justify-between gap-2" style={{ height: 100 }}>
-        {weeklyLearning.map((day) => (
+        {data.map((day) => (
           <div key={day.day} className="flex flex-1 flex-col items-center gap-2">
             <div className="flex w-full flex-1 items-end">
               <div
@@ -62,13 +74,21 @@ export function WeeklyActivityChart() {
         ))}
       </div>
       <p className="mt-4 text-xs text-ink-3">
-        {learningSummary.weeklyHours} hours logged · {learningSummary.weeklyGoal - learningSummary.weeklyHours}h to weekly goal
+        {weeklyHours} hours logged · {Math.max(0, weeklyGoal - weeklyHours)}h to weekly goal
       </p>
     </Panel>
   )
 }
 
 export function UpcomingActivitiesList({ activities }: { activities: UpcomingActivity[] }) {
+  if (activities.length === 0) {
+    return (
+      <Panel title="Upcoming activities">
+        <p className="text-sm text-ink-3">No upcoming activities scheduled.</p>
+      </Panel>
+    )
+  }
+
   return (
     <Panel
       title="Upcoming activities"
@@ -105,16 +125,16 @@ export function UpcomingActivitiesList({ activities }: { activities: UpcomingAct
   )
 }
 
-export function LearningSummaryStrip() {
+export function LearningSummaryStrip({ summary }: { summary: StudentSummary }) {
   const items = [
-    { label: 'Total hours', value: `${learningSummary.totalHours}h` },
-    { label: 'Active courses', value: learningSummary.activeCourses },
-    { label: 'Overall progress', value: `${learningSummary.overallProgress}%` },
-    { label: 'Coaching sessions', value: learningSummary.coachingSessionsThisMonth, hint: 'this month' },
+    { label: 'Total hours', value: `${summary.totalHours}h` },
+    { label: 'Active courses', value: summary.activeCourses },
+    { label: 'Overall progress', value: `${summary.overallProgress}%` },
+    { label: 'Coaching sessions', value: summary.coachingSessionsThisMonth, hint: 'this month' },
   ]
 
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <div className="stat-grid">
       {items.map((item) => (
         <div key={item.label} className="rounded-xl border border-stone-200 bg-white px-4 py-4 shadow-[0_1px_2px_rgba(10,10,10,0.04)]">
           <p className="text-[11px] font-medium uppercase tracking-wider text-ink-3">{item.label}</p>

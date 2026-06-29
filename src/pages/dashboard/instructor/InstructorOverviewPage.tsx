@@ -1,13 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useAuth } from '../../../contexts/AuthContext'
-import {
-  getGreeting,
-  instructorCourses,
-  instructorSummary,
-  liveSessions,
-  instructorNotifications,
-} from '../../../data/instructorData'
+import { getGreeting } from '../../../data/instructorData'
+import { useInstructorDashboard } from '../../../hooks/useInstructorDashboard'
 import { PageIntro, Panel, StatTile } from '../../../components/dashboard/PageShell'
 import { InstructorCourseRow } from '../../../components/instructor/CourseCard'
 import { StatusBadge } from '../../../components/instructor/StatusBadge'
@@ -15,11 +9,14 @@ import { Button } from '../../../components/ui/Button'
 import { Pagination, usePagination } from '../../../components/ui/Pagination'
 
 export function InstructorOverviewPage() {
-  const { user } = useAuth()
+  const { user, workspace } = useInstructorDashboard()
   const firstName = user?.name.split(' ')[0] ?? 'there'
-  const recentCourses = instructorCourses.slice(0, 3)
-  const upcomingSessions = liveSessions.filter((s) => s.status === 'scheduled').slice(0, 4)
-  const recentNotifs = instructorNotifications.slice(0, 3)
+  const { summary } = workspace
+  const recentCourses = workspace.courses.slice(0, 3)
+  const upcomingSessions = workspace.liveSessions.filter((s) => s.status === 'scheduled').slice(0, 4)
+  const recentNotifs = workspace.notifications.slice(0, 3)
+  const hasCourses = workspace.courses.length > 0
+  const enrollingNow = workspace.courses.filter((c) => c.status === 'published').length
 
   return (
     <div className="animate-rise space-y-8">
@@ -27,20 +24,22 @@ export function InstructorOverviewPage() {
         <p className="text-label mb-2">Instructor dashboard</p>
         <h1 className="text-display-lg text-ink">{getGreeting()}, {firstName}</h1>
         <p className="mt-3 max-w-2xl text-body-lg">
-          {instructorSummary.sessionsThisWeek} coaching sessions this week · {instructorSummary.pendingGrades} submissions awaiting review.
+          {hasCourses
+            ? `${summary.sessionsThisWeek} coaching sessions this week · ${summary.pendingGrades} submissions awaiting review.`
+            : 'Create your first course to start teaching and tracking student progress.'}
         </p>
         <div className="mt-6 flex flex-wrap gap-3">
           <Button to="/instructor/courses/new" variant="primary" size="md">Create new course</Button>
           <Button to="/instructor/coaching" variant="secondary" size="md">Schedule session</Button>
-          <Button to="/instructor/grades" variant="ghost" size="md">Review grades ({instructorSummary.pendingGrades})</Button>
+          <Button to="/instructor/grades" variant="ghost" size="md">Review grades ({summary.pendingGrades})</Button>
         </div>
       </header>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatTile label="Total students" value={instructorSummary.totalStudents} hint={`+${instructorSummary.newEnrollments} this month`} />
-        <StatTile label="Active courses" value={instructorSummary.activeCourses} hint="2 enrolling now" />
-        <StatTile label="Avg. completion" value={`${instructorSummary.avgCompletion}%`} hint="+5% vs last quarter" />
-        <StatTile label="Monthly revenue" value={instructorSummary.monthlyRevenue} hint="Before fees" />
+        <StatTile label="Total students" value={summary.totalStudents} hint={`+${summary.newEnrollments} this month`} />
+        <StatTile label="Active courses" value={summary.activeCourses} hint={`${enrollingNow} published`} />
+        <StatTile label="Avg. completion" value={`${summary.avgCompletion}%`} hint="Across published courses" />
+        <StatTile label="Monthly revenue" value={summary.monthlyRevenue} hint="Before fees" />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-5">
@@ -83,19 +82,21 @@ export function InstructorOverviewPage() {
 }
 
 export function InstructorCoursesPage() {
+  const { workspace } = useInstructorDashboard()
+  const courses = workspace?.courses ?? []
   const [filter, setFilter] = useState<'all' | 'published' | 'draft'>('all')
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(1)
   const pageSize = 8
 
   const filtered = useMemo(() => {
-    let list = instructorCourses.filter((c) => filter === 'all' || c.status === filter)
+    let list = courses.filter((c) => filter === 'all' || c.status === filter)
     if (query.trim()) {
       const q = query.toLowerCase()
       list = list.filter((c) => c.title.toLowerCase().includes(q) || c.category.toLowerCase().includes(q))
     }
     return list
-  }, [filter, query])
+  }, [courses, filter, query])
 
   const paged = usePagination(filtered, pageSize, page)
 
@@ -119,7 +120,7 @@ export function InstructorCoursesPage() {
                 filter === f ? 'bg-forest-800 text-white' : 'bg-white border border-stone-200 text-ink-2 hover:bg-stone-50'
               }`}
             >
-              {f} {f === 'all' ? `(${instructorCourses.length})` : `(${instructorCourses.filter((c) => c.status === f).length})`}
+              {f} {f === 'all' ? `(${courses.length})` : `(${courses.filter((c) => c.status === f).length})`}
             </button>
           ))}
         </div>

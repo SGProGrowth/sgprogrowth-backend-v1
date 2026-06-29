@@ -67,6 +67,7 @@ export interface Certificate {
 
 export interface Notification {
   id: string
+  studentId?: string
   type: NotificationType
   title: string
   message: string
@@ -112,6 +113,11 @@ export const studentPageMeta: Record<string, { title: string; subtitle: string }
   '/dashboard/certificates': { title: 'Certificates', subtitle: 'Earned credentials and achievements' },
   '/dashboard/notifications': { title: 'Notifications', subtitle: 'Updates, announcements, and alerts' },
   '/dashboard/settings': { title: 'Profile & Settings', subtitle: 'Account and learning preferences' },
+  '/dashboard/calendar': { title: 'Calendar', subtitle: 'Sessions, deadlines, and learning events' },
+  '/dashboard/batches': { title: 'My Batches', subtitle: 'Cohort schedules and batchmates' },
+  '/dashboard/coaching': { title: 'Live Sessions', subtitle: 'Coaching and live class schedule' },
+  '/dashboard/messages': { title: 'Messages', subtitle: 'Conversations with instructors' },
+  '/dashboard/downloads': { title: 'Downloads', subtitle: 'Course materials and resources' },
 }
 
 /* ── Learning summary ── */
@@ -145,8 +151,8 @@ export const enrolledCourses: EnrolledCourse[] = [
   {
     id: 'aws-solutions-architect',
     title: 'AWS Solutions Architect Certification Prep',
-    instructor: 'Cloud Academy · Sharva Group',
-    coach: 'Mahesh M.',
+    instructor: 'Cloud Academy · SG Pro Growth',
+    coach: 'Aanya Mehta',
     category: 'Cloud & DevOps',
     level: 'Advanced',
     duration: '10 weeks',
@@ -163,8 +169,8 @@ export const enrolledCourses: EnrolledCourse[] = [
   {
     id: 'it-project-management',
     title: 'IT Project Management Professional',
-    instructor: 'Mahesh M. · Sharva Group',
-    coach: 'Kanchi Shah',
+    instructor: 'Aanya Mehta · SG Pro Growth',
+    coach: 'Rohan Kapoor',
     category: 'Project Management',
     level: 'Intermediate',
     duration: '6 weeks',
@@ -181,8 +187,8 @@ export const enrolledCourses: EnrolledCourse[] = [
   {
     id: 'data-analytics-pro',
     title: 'Google Data Analytics Professional Certificate',
-    instructor: 'Data Labs · Sharva Group',
-    coach: 'Mahesh M.',
+    instructor: 'Data Labs · SG Pro Growth',
+    coach: 'Aanya Mehta',
     category: 'Data & Analytics',
     level: 'Beginner',
     duration: '12 weeks',
@@ -199,8 +205,8 @@ export const enrolledCourses: EnrolledCourse[] = [
   {
     id: 'demo-course',
     title: 'Career Discovery & Coaching Session',
-    instructor: 'Kanchi Shah · Sharva Group',
-    coach: 'Kanchi Shah',
+    instructor: 'Rohan Kapoor · SG Pro Growth',
+    coach: 'Rohan Kapoor',
     category: 'Leadership & Coaching',
     level: 'Beginner',
     duration: '2 weeks',
@@ -440,7 +446,7 @@ export const earnedCertificates: Certificate[] = [
     courseId: 'demo-course',
     issuedDate: 'May 15, 2026',
     credentialId: 'SGPG-CD-2026-00482',
-    instructor: 'Kanchi Shah',
+    instructor: 'Rohan Kapoor',
     skills: ['Career Planning', 'Goal Setting', 'Self-Assessment'],
   },
 ]
@@ -469,11 +475,11 @@ export const notifications: Notification[] = [
     id: 'n2',
     type: 'coaching',
     title: 'Coaching session tomorrow',
-    message: 'Your 1:1 with Mahesh M. on AWS exam strategy is scheduled for 3:00 PM.',
+    message: 'Your 1:1 with Aanya Mehta on AWS exam strategy is scheduled for 3:00 PM.',
     time: '5 hours ago',
     read: false,
     actionLabel: 'View schedule',
-    actionHref: '/dashboard',
+    actionHref: '/dashboard/coaching',
   },
   {
     id: 'n3',
@@ -520,7 +526,7 @@ export const upcomingActivities: UpcomingActivity[] = [
   {
     id: 'u1',
     title: '1:1 Coaching session',
-    subtitle: 'AWS exam strategy · with Mahesh M.',
+    subtitle: 'AWS exam strategy · with Aanya Mehta',
     datetime: 'Tomorrow · 3:00 PM',
     type: 'coaching',
     courseId: 'aws-solutions-architect',
@@ -544,7 +550,7 @@ export const upcomingActivities: UpcomingActivity[] = [
   {
     id: 'u4',
     title: 'AWS SAA Practice Exam — Set 2',
-    subtitle: 'Live review · with Mahesh M.',
+    subtitle: 'Live review · with Aanya Mehta',
     datetime: 'Friday · 11:00 AM',
     type: 'quiz',
     courseId: 'aws-solutions-architect',
@@ -597,3 +603,156 @@ export function getUpcomingQuizzes() {
 export function getCompletedQuizzes() {
   return quizzes.filter((q) => q.status === 'completed')
 }
+
+/* ── Calendar ── */
+
+export type CalendarEventType = 'coaching' | 'live' | 'deadline' | 'quiz' | 'module' | 'batch'
+
+export interface StudentCalendarEvent {
+  id: string
+  title: string
+  date: string
+  time: string
+  type: CalendarEventType
+  courseTitle?: string
+  location?: string
+}
+
+export const studentCalendarEvents: StudentCalendarEvent[] = [
+  { id: 'ce1', title: '1:1 Coaching — AWS Exam Strategy', date: '2026-06-26', time: '3:00 PM', type: 'coaching', courseTitle: 'AWS Solutions Architect', location: 'Microsoft Teams' },
+  { id: 'ce2', title: 'VPC Architecture Lab Due', date: '2026-06-27', time: '11:59 PM', type: 'deadline', courseTitle: 'AWS Solutions Architect' },
+  { id: 'ce3', title: 'Practice Exam Review — Live', date: '2026-06-28', time: '11:00 AM', type: 'live', courseTitle: 'AWS Solutions Architect', location: 'Zoom' },
+  { id: 'ce4', title: 'AWS SAA Practice Exam — Set 2', date: '2026-06-28', time: '2:00 PM', type: 'quiz', courseTitle: 'AWS Solutions Architect' },
+  { id: 'ce5', title: 'Career Roadmap Check-in', date: '2026-06-30', time: '10:00 AM', type: 'coaching', location: 'Microsoft Teams' },
+  { id: 'ce6', title: 'Module 4: VPC & Networking', date: '2026-06-27', time: 'Self-paced', type: 'module', courseTitle: 'AWS Solutions Architect' },
+  { id: 'ce7', title: 'Batch Cohort Sync — AWS Jun 2026', date: '2026-06-29', time: '6:00 PM', type: 'batch', courseTitle: 'AWS Solutions Architect', location: 'Group session' },
+  { id: 'ce8', title: 'Data Cleaning Lab Due', date: '2026-06-27', time: '11:59 PM', type: 'deadline', courseTitle: 'Data Analytics' },
+]
+
+/* ── Batches ── */
+
+export type BatchStatus = 'active' | 'upcoming' | 'completed'
+
+export interface StudentBatch {
+  id: string
+  name: string
+  courseId: string
+  courseTitle: string
+  instructor: string
+  coach: string
+  startDate: string
+  endDate: string
+  status: BatchStatus
+  schedule: string
+  studentsCount: number
+  progress: number
+  nextSession: string
+  batchmates: { name: string; initials: string }[]
+}
+
+export const studentBatches: StudentBatch[] = [
+  {
+    id: 'b1',
+    name: 'AWS SAA — June 2026 Cohort',
+    courseId: 'aws-solutions-architect',
+    courseTitle: 'AWS Solutions Architect Certification Prep',
+    instructor: 'Aanya Mehta',
+    coach: 'Aanya Mehta',
+    startDate: 'Jun 1, 2026',
+    endDate: 'Aug 15, 2026',
+    status: 'active',
+    schedule: 'Tue & Thu · 6:00–8:00 PM IST',
+    studentsCount: 24,
+    progress: 68,
+    nextSession: 'Jun 29 · 6:00 PM — Cohort sync',
+    batchmates: [
+      { name: 'Ankit Verma', initials: 'AV' },
+      { name: 'Neha Sharma', initials: 'NS' },
+      { name: 'Rahul M.', initials: 'RM' },
+      { name: 'Priya K.', initials: 'PK' },
+    ],
+  },
+  {
+    id: 'b2',
+    name: 'IT PM — May 2026 Batch',
+    courseId: 'it-project-management',
+    courseTitle: 'IT Project Management Professional',
+    instructor: 'Rohan Kapoor',
+    coach: 'Rohan Kapoor',
+    startDate: 'May 12, 2026',
+    endDate: 'Jul 24, 2026',
+    status: 'active',
+    schedule: 'Wed · 7:00–9:00 PM IST',
+    studentsCount: 18,
+    progress: 34,
+    nextSession: 'Jul 2 · 7:00 PM — Stakeholder workshop',
+    batchmates: [
+      { name: 'Riya Patel', initials: 'RP' },
+      { name: 'Sneha D.', initials: 'SD' },
+      { name: 'Vikram S.', initials: 'VS' },
+    ],
+  },
+  {
+    id: 'b3',
+    name: 'Data Analytics — Aug 2026 Intake',
+    courseId: 'data-analytics-pro',
+    courseTitle: 'Data Analytics Foundations',
+    instructor: 'Aanya Mehta',
+    coach: 'Aanya Mehta',
+    startDate: 'Aug 4, 2026',
+    endDate: 'Oct 12, 2026',
+    status: 'upcoming',
+    schedule: 'Mon & Fri · 6:30–8:00 PM IST',
+    studentsCount: 12,
+    progress: 0,
+    nextSession: 'Orientation · Aug 4 · 6:30 PM',
+    batchmates: [],
+  },
+]
+
+/* ── Coaching sessions ── */
+
+export interface StudentCoachingSession {
+  id: string
+  title: string
+  coach: string
+  courseTitle?: string
+  date: string
+  time: string
+  duration: string
+  type: '1:1' | 'group' | 'office-hours'
+  status: 'upcoming' | 'completed' | 'cancelled'
+  meetingLink: string
+  notes?: string
+}
+
+export const studentCoachingSessions: StudentCoachingSession[] = [
+  { id: 'cs1', title: 'AWS Exam Strategy — 1:1', coach: 'Aanya Mehta', courseTitle: 'AWS Solutions Architect', date: 'Jun 26, 2026', time: '3:00 PM', duration: '60 min', type: '1:1', status: 'upcoming', meetingLink: 'https://teams.microsoft.com/l/meetup-join/aws-session', notes: 'Bring your practice exam results' },
+  { id: 'cs2', title: 'Career Roadmap Check-in', coach: 'Career coach', date: 'Jun 30, 2026', time: '10:00 AM', duration: '45 min', type: '1:1', status: 'upcoming', meetingLink: 'https://teams.microsoft.com/l/meetup-join/career-checkin' },
+  { id: 'cs3', title: 'Practice Exam Review — Live', coach: 'Aanya Mehta', courseTitle: 'AWS Solutions Architect', date: 'Jun 28, 2026', time: '11:00 AM', duration: '90 min', type: 'group', status: 'upcoming', meetingLink: 'https://zoom.us/j/practice-exam-review' },
+  { id: 'cs4', title: 'Weekly Office Hours', coach: 'Aanya Mehta', date: 'Jul 3, 2026', time: '10:00 AM', duration: '90 min', type: 'office-hours', status: 'upcoming', meetingLink: 'https://teams.microsoft.com/l/meetup-join/office-hours' },
+  { id: 'cs5', title: 'Project Management Q&A', coach: 'Rohan Kapoor', courseTitle: 'IT Project Management', date: 'Jun 18, 2026', time: '2:00 PM', duration: '45 min', type: '1:1', status: 'completed', meetingLink: '#' },
+]
+
+/* ── Messages ── */
+
+export interface StudentMessage {
+  id: string
+  from: string
+  role: string
+  subject: string
+  preview: string
+  body: string
+  time: string
+  read: boolean
+  courseTitle?: string
+}
+
+export const studentMessages: StudentMessage[] = [
+  { id: 'sm1', from: 'Aanya Mehta', role: 'Instructor & Coach', subject: 'VPC lab feedback', preview: 'Great work on the subnet design. One suggestion on the NAT gateway…', body: 'Great work on the subnet design. One suggestion on the NAT gateway configuration — consider using a single NAT in dev environments to reduce cost. Let me know if you want to walk through this in our next session.', time: '2 hours ago', read: false, courseTitle: 'AWS Solutions Architect' },
+  { id: 'sm2', from: 'Rohan Kapoor', role: 'Instructor', subject: 'Stakeholder plan extension approved', preview: 'Your 2-day extension has been approved. New due date is Jul 2…', body: 'Your 2-day extension has been approved. New due date is Jul 2. Please focus on the risk register section — that is where most learners need extra coaching support.', time: 'Yesterday', read: false, courseTitle: 'IT Project Management' },
+  { id: 'sm3', from: 'Platform Support', role: 'Support', subject: 'Certificate verification link', preview: 'Your Career Discovery certificate is now available for sharing…', body: 'Your Career Discovery certificate is now available for sharing on LinkedIn. Visit your Certificates page to download the PDF or copy the verification link.', time: '3 days ago', read: true },
+  { id: 'sm4', from: 'Aanya Mehta', role: 'Instructor & Coach', subject: 'Practice exam results', preview: 'You scored 78% on Set 1 — strong on compute, review networking…', body: 'You scored 78% on Set 1 — strong on compute, review networking and security sections before Set 2. I have added recommended readings to Module 4.', time: '1 week ago', read: true, courseTitle: 'AWS Solutions Architect' },
+]
+
+export const unreadStudentMessages = studentMessages.filter((m) => !m.read).length

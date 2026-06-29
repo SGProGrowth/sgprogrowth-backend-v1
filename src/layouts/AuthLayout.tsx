@@ -78,7 +78,7 @@ export function AuthLayout({
             </Link>
           </div>
 
-          <div className="flex flex-1 items-center justify-center px-6 pb-12 lg:px-10">
+          <div className="flex flex-1 items-center justify-center px-4 pb-10 sm:px-6 sm:pb-12 lg:px-10">
             <div className="w-full max-w-md animate-rise">
               <div className="mb-8">
                 <h1 className="text-display-md text-ink">{title}</h1>

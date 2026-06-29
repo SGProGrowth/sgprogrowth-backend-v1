@@ -29,8 +29,8 @@ const roleCards = [
 export function LoginLandingPage() {
   return (
     <AuthLayout
-      title="Welcome back"
-      subtitle="Sign in to your account. Choose your role to continue."
+      title="Sign in"
+      subtitle="Welcome back. Choose your role to access your account."
     >
       <div className="space-y-3">
         {roleCards.map((card) => (
@@ -72,8 +72,8 @@ export function LoginLandingPage() {
 export function RegisterLandingPage() {
   return (
     <AuthLayout
-      title="Get started"
-      subtitle="Create your account. Choose how you'll use SG Pro Growth."
+      title="Create your account"
+      subtitle="New to SG Pro Growth? Choose how you'll use the platform."
     >
       <div className="space-y-3">
         {roleCards.map((card) => (

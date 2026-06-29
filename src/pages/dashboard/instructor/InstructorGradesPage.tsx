@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { gradeEntries } from '../../../data/instructorData'
+import type { GradeEntry } from '../../../data/instructorData'
+import { useInstructorDashboard } from '../../../hooks/useInstructorDashboard'
 import { PageIntro, TabBar, StatTile } from '../../../components/dashboard/PageShell'
 import { StatusBadge } from '../../../components/instructor/StatusBadge'
 import { Modal } from '../../../components/instructor/Modal'
@@ -8,8 +9,10 @@ import { SuccessBanner } from '../../../components/instructor/Modal'
 import { Button } from '../../../components/ui/Button'
 
 export function InstructorGradesPage() {
+  const { workspace } = useInstructorDashboard()
+  const gradeEntries = workspace?.grades ?? []
   const [tab, setTab] = useState('pending')
-  const [grading, setGrading] = useState<typeof gradeEntries[0] | null>(null)
+  const [grading, setGrading] = useState<GradeEntry | null>(null)
   const [score, setScore] = useState('')
   const [saved, setSaved] = useState(false)
 
@@ -42,7 +45,7 @@ export function InstructorGradesPage() {
 
       {saved && <SuccessBanner message="Grade saved and student notified." onDismiss={() => setSaved(false)} />}
 
-      <div className="mb-8 grid gap-4 sm:grid-cols-3">
+      <div className="stat-grid-3 mb-6 sm:mb-8">
         <StatTile label="Pending review" value={pending.length} hint="Awaiting your feedback" />
         <StatTile label="Graded this week" value={graded.length} />
         <StatTile label="Class average" value="88%" hint="Across graded submissions" />
