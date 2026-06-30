@@ -4,6 +4,9 @@ import { MarketingLayout } from './layouts/MarketingLayout'
 import { DashboardLayout } from './layouts/DashboardLayout'
 import { LoginLandingPage, RegisterLandingPage } from './pages/auth/AuthLandingPages'
 import { RegisterPage, SignInPage } from './pages/auth/AuthForms'
+import { CheckEmailPage } from './pages/auth/CheckEmailPage'
+import { VerifyEmailPage } from './pages/auth/VerifyEmailPage'
+import { ForgotPasswordPage, ResetPasswordPage, ResendVerificationPage } from './pages/auth/PasswordPages'
 import { GuestRoute, ProtectedRoute } from './routes/ProtectedRoute'
 import { HomePage } from './pages/HomePage'
 import CoursesPage from './pages/CoursesPage'
@@ -66,6 +69,11 @@ function App() {
           <Route path="/register" element={<GuestRoute><RegisterLandingPage /></GuestRoute>} />
           <Route path="/register/student" element={<GuestRoute><RegisterPage role="student" /></GuestRoute>} />
           <Route path="/register/instructor" element={<GuestRoute><RegisterPage role="instructor" /></GuestRoute>} />
+          <Route path="/check-email" element={<GuestRoute><CheckEmailPage /></GuestRoute>} />
+          <Route path="/verify-email" element={<GuestRoute><VerifyEmailPage /></GuestRoute>} />
+          <Route path="/resend-verification" element={<GuestRoute><ResendVerificationPage /></GuestRoute>} />
+          <Route path="/forgot-password" element={<GuestRoute><ForgotPasswordPage /></GuestRoute>} />
+          <Route path="/reset-password" element={<GuestRoute><ResetPasswordPage /></GuestRoute>} />
 
           {/* Student dashboard */}
           <Route

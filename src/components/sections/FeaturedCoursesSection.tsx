@@ -1,29 +1,63 @@
-import { useMemo, useState } from 'react'
-import { featuredCourses, courseCategories } from '../../data/homepageData'
+import { useEffect, useMemo, useState } from 'react'
+import { courseCategories as fallbackCategories } from '../../data/homepageData'
 import { Container } from '../layout/Container'
 import { SectionHeader } from '../layout/SectionHeader'
 import { CourseCard } from '../ui/CourseCard'
 import { FilterTabs } from '../ui/FilterTabs'
 import { Button } from '../ui/Button'
+import { LoadingState } from '../ui/LoadingState'
+import { fetchCourseCatalog, mapCatalogCourseToUi } from '../../lib/api/courses'
+import { fetchCategories, mapCategoryToUi } from '../../lib/api/categories'
 
 const tabs = ['Most Popular', 'New', 'Trending', 'For Teams']
-
-function filterTab(courses: typeof featuredCourses, tab: string) {
-  if (tab === 'New') return courses.filter((c) => c.isNew)
-  if (tab === 'Trending') return courses.filter((c) => c.trending)
-  if (tab === 'For Teams') return courses.filter((c) => c.forTeams)
-  return courses
-}
 
 export function FeaturedCoursesSection() {
   const [tab, setTab] = useState(tabs[0])
   const [cat, setCat] = useState('all')
+  const [courses, setCourses] = useState<ReturnType<typeof mapCatalogCourseToUi>[]>([])
+  const [categories, setCategories] = useState(fallbackCategories)
+  const [loading, setLoading] = useState(true)
 
-  const courses = useMemo(() => {
-    let r = filterTab(featuredCourses, tab)
-    if (cat !== 'all') r = r.filter((c) => c.category === cat)
-    return r.length ? r : featuredCourses
-  }, [tab, cat])
+  useEffect(() => {
+    fetchCategories()
+      .then((rows) => setCategories(rows.map(mapCategoryToUi)))
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+
+    const params: Parameters<typeof fetchCourseCatalog>[0] = {
+      page: 1,
+      pageSize: 12,
+      featured: tab === 'Most Popular' ? true : undefined,
+      trending: tab === 'Trending' ? true : undefined,
+      forTeams: tab === 'For Teams' ? true : undefined,
+    }
+
+    fetchCourseCatalog(params)
+      .then((res) => {
+        if (!cancelled) setCourses(res.data.map(mapCatalogCourseToUi))
+      })
+      .catch(() => {
+        if (!cancelled) setCourses([])
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [tab])
+
+  const filtered = useMemo(() => {
+    let list = courses.slice()
+    if (tab === 'New') list = list.filter((c) => c.isNew)
+    if (cat !== 'all') list = list.filter((c) => c.category === cat)
+    return list.length ? list : courses
+  }, [courses, tab, cat])
 
   return (
     <section id="courses" className="section-padding bg-white section-rule">
@@ -44,15 +78,19 @@ export function FeaturedCoursesSection() {
             aria-label="Filter by category"
           >
             <option value="all">All categories</option>
-            {courseCategories.map((c) => (
+            {categories.map((c) => (
               <option key={c.id} value={c.title}>{c.title}</option>
             ))}
           </select>
         </div>
 
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {courses.map((c) => <CourseCard key={c.id} course={c} />)}
-        </div>
+        {loading ? (
+          <LoadingState label="Loading featured courses…" />
+        ) : (
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {filtered.map((c) => <CourseCard key={c.id} course={c} />)}
+          </div>
+        )}
       </Container>
     </section>
   )

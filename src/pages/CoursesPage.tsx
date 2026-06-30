@@ -3,19 +3,17 @@ import { useSearchParams } from 'react-router-dom'
 import { Breadcrumbs } from '../components/ui/Breadcrumbs'
 import { Container } from '../components/layout/Container'
 import { SectionHeader } from '../components/layout/SectionHeader'
-import { featuredCourses, courseCategories } from '../data/homepageData'
+import { courseCategories as fallbackCategories } from '../data/homepageData'
+import type { Course } from '../data/homepageData'
 import { CourseCard } from '../components/ui/CourseCard'
 import { Button } from '../components/ui/Button'
-import { Pagination, usePagination } from '../components/ui/Pagination'
+import { Pagination } from '../components/ui/Pagination'
+import { LoadingState } from '../components/ui/LoadingState'
+import { fetchCourseCatalog, mapCatalogCourseToUi } from '../lib/api/courses'
+import { fetchCategories, mapCategoryToUi } from '../lib/api/categories'
+import { getErrorMessage } from '../lib/api/errors'
 
 const PAGE_SIZE = 9
-
-function matchCategory(courseCategory: string, categoryId: string): boolean {
-  if (categoryId === 'all') return true
-  const cat = courseCategories.find((c) => c.id === categoryId)
-  if (!cat) return courseCategory.toLowerCase().includes(categoryId.replace(/-/g, ' '))
-  return courseCategory.toLowerCase() === cat.title.toLowerCase()
-}
 
 export default function CoursesPage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -27,6 +25,17 @@ export default function CoursesPage() {
   const [category, setCategory] = useState(initialCategory)
   const [sort, setSort] = useState<'relevance' | 'rating' | 'duration'>(initialSort)
   const [page, setPage] = useState(1)
+  const [courses, setCourses] = useState<Course[]>([])
+  const [total, setTotal] = useState(0)
+  const [categories, setCategories] = useState(fallbackCategories)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetchCategories()
+      .then((rows) => setCategories(rows.map(mapCategoryToUi)))
+      .catch(() => setCategories(fallbackCategories))
+  }, [])
 
   useEffect(() => {
     setQuery(initialQuery)
@@ -35,36 +44,40 @@ export default function CoursesPage() {
     setPage(1)
   }, [initialQuery, initialCategory, initialSort])
 
-  const categories = [{ id: 'all', title: 'All categories' }, ...courseCategories]
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    setError(null)
 
-  const filtered = useMemo(() => {
-    let list = featuredCourses.slice()
+    fetchCourseCatalog({
+      page,
+      pageSize: PAGE_SIZE,
+      q: query.trim() || undefined,
+      category: category !== 'all' ? category : undefined,
+      sort: sort === 'duration' ? 'duration' : sort,
+    })
+      .then((res) => {
+        if (!cancelled) {
+          setCourses(res.data.map(mapCatalogCourseToUi))
+          setTotal(res.meta.total)
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) setError(getErrorMessage(err))
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
 
-    if (category !== 'all') {
-      list = list.filter((c) => matchCategory(c.category, category))
+    return () => {
+      cancelled = true
     }
+  }, [page, query, category, sort])
 
-    if (query.trim()) {
-      const q = query.toLowerCase()
-      list = list.filter(
-        (c) =>
-          c.title.toLowerCase().includes(q) ||
-          c.instructor.toLowerCase().includes(q) ||
-          c.category.toLowerCase().includes(q),
-      )
-    }
-
-    if (sort === 'rating') {
-      list.sort((a, b) => (b.rating || 0) - (a.rating || 0))
-    } else if (sort === 'duration') {
-      const parseDur = (d = '') => parseInt(d, 10) || 0
-      list.sort((a, b) => parseDur(a.duration) - parseDur(b.duration))
-    }
-
-    return list
-  }, [query, category, sort])
-
-  const paged = usePagination(filtered, PAGE_SIZE, page)
+  const categoryOptions = useMemo(
+    () => [{ id: 'all', title: 'All categories' }, ...categories.map((c) => ({ id: c.id, title: c.title }))],
+    [categories],
+  )
 
   const syncParams = (next: { q?: string; category?: string; sort?: string; page?: number }) => {
     const params = new URLSearchParams(searchParams)
@@ -134,7 +147,7 @@ export default function CoursesPage() {
                 }}
                 className="input-field w-full sm:min-w-[180px] appearance-none"
               >
-                {categories.map((cat) => (
+                {categoryOptions.map((cat) => (
                   <option key={cat.id} value={cat.id}>
                     {cat.title}
                   </option>
@@ -166,11 +179,18 @@ export default function CoursesPage() {
         </div>
 
         <p className="mb-6 text-sm text-ink-3">
-          {filtered.length} {filtered.length === 1 ? 'course' : 'courses'} found
+          {total} {total === 1 ? 'course' : 'courses'} found
           {query.trim() ? ` for “${query.trim()}”` : ''}
         </p>
 
-        {filtered.length === 0 ? (
+        {loading ? (
+          <LoadingState label="Loading courses…" />
+        ) : error ? (
+          <div className="rounded-xl border border-red-200 bg-red-50 px-6 py-12 text-center">
+            <p className="font-display text-lg font-bold text-ink">Unable to load courses</p>
+            <p className="mt-2 text-sm text-ink-3">{error}</p>
+          </div>
+        ) : courses.length === 0 ? (
           <div className="rounded-xl border border-stone-200 bg-stone-50 px-6 py-12 text-center">
             <p className="font-display text-lg font-bold text-ink">No courses match your filters</p>
             <p className="mt-2 text-sm text-ink-3">Try adjusting search terms or browse all categories.</p>
@@ -192,7 +212,7 @@ export default function CoursesPage() {
         ) : (
           <>
             <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-              {paged.map((course) => (
+              {courses.map((course) => (
                 <CourseCard key={course.id} course={course} />
               ))}
             </div>
@@ -201,7 +221,7 @@ export default function CoursesPage() {
               className="mt-10"
               page={page}
               pageSize={PAGE_SIZE}
-              total={filtered.length}
+              total={total}
               onPageChange={setPage}
             />
           </>

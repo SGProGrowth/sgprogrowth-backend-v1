@@ -1,10 +1,12 @@
-import { useMemo, useState } from 'react'
-import { recommendedCourses } from '../../../data/studentData'
+import { useEffect, useMemo, useState } from 'react'
 import { useStudentDashboard } from '../../../hooks/useStudentDashboard'
 import { EnrolledCourseCard, RecommendedCourseCard } from '../../../components/student/CourseCards'
 import { PageIntro, TabBar, EmptyState } from '../../../components/student/Panel'
 import { Button } from '../../../components/ui/Button'
 import { Pagination, usePagination } from '../../../components/ui/Pagination'
+import { LoadingState } from '../../../components/ui/LoadingState'
+import { fetchCourseCatalog } from '../../../lib/api/courses'
+import { mapCatalogToRecommended } from '../../../lib/api/enrollments'
 
 const PAGE_SIZE = 6
 
@@ -13,14 +15,61 @@ export function StudentCoursesPage() {
   const [tab, setTab] = useState('active')
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(1)
+  const [recommended, setRecommended] = useState<ReturnType<typeof mapCatalogToRecommended>[]>([])
+  const [loadingRecommended, setLoadingRecommended] = useState(false)
 
   const active = workspace?.courses.filter((c) => c.status === 'active') ?? []
   const completed = workspace?.courses.filter((c) => c.status === 'completed') ?? []
+  const enrolledIdKey = workspace?.courses.map((c) => c.id).join(',') ?? ''
+
+  useEffect(() => {
+    if (tab !== 'recommended') return
+
+    let cancelled = false
+    setLoadingRecommended(true)
+    const enrolled = new Set(enrolledIdKey ? enrolledIdKey.split(',') : [])
+
+    fetchCourseCatalog({ page: 1, pageSize: 20, sort: 'rating' })
+      .then((res) => {
+        if (cancelled) return
+        const items = res.data
+          .filter((c) => !enrolled.has(c.id))
+          .slice(0, 6)
+          .map((c, i) =>
+            mapCatalogToRecommended(
+              {
+                id: c.id,
+                title: c.title,
+                instructor: c.instructor,
+                category: c.category,
+                level: c.level,
+                duration: c.duration,
+                rating: c.rating,
+                reviewCount: c.reviewCount,
+                price: c.price,
+                badge: c.badge,
+              },
+              i === 0 ? 'Top rated in catalog' : 'Recommended for your learning path',
+            ),
+          )
+        setRecommended(items)
+      })
+      .catch(() => {
+        if (!cancelled) setRecommended([])
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingRecommended(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [tab, enrolledIdKey])
 
   const tabs = [
     { id: 'active', label: 'Active', count: active.length },
     { id: 'completed', label: 'Completed', count: completed.length },
-    { id: 'recommended', label: 'Recommended', count: recommendedCourses.length },
+    { id: 'recommended', label: 'Recommended', count: recommended.length },
   ]
 
   const filteredActive = useMemo(() => {
@@ -36,10 +85,10 @@ export function StudentCoursesPage() {
   }, [completed, query])
 
   const filteredRecommended = useMemo(() => {
-    if (!query.trim()) return recommendedCourses
+    if (!query.trim()) return recommended
     const q = query.toLowerCase()
-    return recommendedCourses.filter((c) => c.title.toLowerCase().includes(q) || c.instructor.toLowerCase().includes(q))
-  }, [query])
+    return recommended.filter((c) => c.title.toLowerCase().includes(q) || c.instructor.toLowerCase().includes(q))
+  }, [query, recommended])
 
   const filtered =
     tab === 'active' ? filteredActive : tab === 'completed' ? filteredCompleted : filteredRecommended
@@ -82,7 +131,9 @@ export function StudentCoursesPage() {
         </div>
       </div>
 
-      {filtered.length === 0 ? (
+      {tab === 'recommended' && loadingRecommended ? (
+        <LoadingState label="Loading recommendations…" />
+      ) : filtered.length === 0 ? (
         <EmptyState
           title={query ? 'No matching courses' : 'No courses in this view'}
           description={query ? 'Try a different search term or switch tabs.' : 'Browse the catalog to enroll in your next program.'}

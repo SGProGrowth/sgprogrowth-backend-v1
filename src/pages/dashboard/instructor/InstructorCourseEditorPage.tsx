@@ -1,7 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams, Navigate } from 'react-router-dom'
 import {
-  categories,
   defaultCourseDraft,
   type InstructorCourse,
 } from '../../../data/instructorData'
@@ -13,6 +12,16 @@ import { CurriculumEditor } from '../../../components/instructor/CurriculumEdito
 import { StatusBadge } from '../../../components/instructor/StatusBadge'
 import { SuccessBanner, ConfirmDialog } from '../../../components/instructor/Modal'
 import { Button } from '../../../components/ui/Button'
+import {
+  createCourse,
+  instructorCourseToPayload,
+  publishCourse,
+  replaceCourseCurriculum,
+  unpublishCourse,
+  updateCourse,
+} from '../../../lib/api/courses'
+import { fetchCategories, mapCategoryToUi } from '../../../lib/api/categories'
+import { getErrorMessage } from '../../../lib/api/errors'
 
 const editorTabs = [
   { id: 'basics', label: 'Course details' },
@@ -27,15 +36,28 @@ export function InstructorCourseEditorPage() {
   const { courseId } = useParams()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
-  const { profile } = useInstructorDashboard()
+  const { profile, refresh } = useInstructorDashboard()
   const isNew = !courseId || courseId === 'new'
   const existing = useInstructorCourse(isNew ? undefined : courseId)
 
   const [tab, setTab] = useState(searchParams.get('tab') ?? 'basics')
   const [saved, setSaved] = useState(false)
   const [publishing, setPublishing] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [showPublishConfirm, setShowPublishConfirm] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [categories, setCategories] = useState<{ id: string; title: string }[]>([])
+
+  useEffect(() => {
+    fetchCategories()
+      .then((rows) => setCategories(rows.map(mapCategoryToUi)))
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    if (existing) setCourse(existing)
+  }, [existing?.id, existing?.updatedAt])
 
   const [course, setCourse] = useState<Partial<InstructorCourse>>(
     existing ?? {
@@ -62,21 +84,73 @@ export function InstructorCourseEditorPage() {
     return Object.keys(e).length === 0
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!validate()) return
-    setSaved(true)
-    setTimeout(() => setSaved(false), 3000)
+    setSaving(true)
+    setSaveError(null)
+
+    try {
+      const payload = instructorCourseToPayload(course)
+      let savedCourse: InstructorCourse
+
+      if (isNew) {
+        if (!course.title?.trim()) return
+        savedCourse = await createCourse({ ...payload, title: course.title.trim() })
+        if (course.modules?.length) {
+          await replaceCourseCurriculum(savedCourse.id, course.modules)
+        }
+        await refresh()
+        navigate(`/instructor/courses/${savedCourse.id}/edit`, { replace: true })
+      } else if (courseId) {
+        savedCourse = await updateCourse(courseId, payload)
+        if (course.modules) {
+          const modules = await replaceCourseCurriculum(courseId, course.modules)
+          savedCourse = { ...savedCourse, modules }
+        }
+        setCourse(savedCourse)
+        await refresh()
+      }
+
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+    } catch (err) {
+      setSaveError(getErrorMessage(err))
+    } finally {
+      setSaving(false)
+    }
   }
 
-  const handlePublish = () => {
+  const handlePublish = async () => {
+    if (!courseId || courseId === 'new') return
     setPublishing(true)
-    setTimeout(() => {
-      update({ status: 'published' })
-      setPublishing(false)
+    setSaveError(null)
+
+    try {
+      if (course.status !== 'published') {
+        await handleSave()
+      }
+      const published = await publishCourse(courseId)
+      setCourse(published)
+      await refresh()
       setShowPublishConfirm(false)
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
-    }, 1500)
+    } catch (err) {
+      setSaveError(getErrorMessage(err))
+    } finally {
+      setPublishing(false)
+    }
+  }
+
+  const handleUnpublish = async () => {
+    if (!courseId) return
+    try {
+      const draft = await unpublishCourse(courseId)
+      setCourse(draft)
+      await refresh()
+    } catch (err) {
+      setSaveError(getErrorMessage(err))
+    }
   }
 
   const addOutcome = () => update({ learningOutcomes: [...(course.learningOutcomes ?? []), ''] })
@@ -91,16 +165,22 @@ export function InstructorCourseEditorPage() {
       <PageIntro
         eyebrow={isNew ? 'New course' : 'Edit course'}
         title={isNew ? 'Create new course' : course.title ?? 'Edit course'}
-        description="Build your coaching-led program. Drafts are saved locally until you publish."
+        description="Build your coaching-led program. Save drafts to the server and publish when ready."
         action={
           <div className="flex flex-wrap gap-2">
             {!isNew && (
               <Button to={`/instructor/courses/${courseId}/preview`} variant="secondary" size="md">Preview</Button>
             )}
-            <Button variant="primary" size="md" onClick={handleSave}>Save draft</Button>
+            <Button variant="primary" size="md" onClick={handleSave} disabled={saving}>
+              {saving ? 'Saving…' : 'Save draft'}
+            </Button>
           </div>
         }
       />
+
+      {saveError && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{saveError}</div>
+      )}
 
       {saved && <SuccessBanner message="Course saved successfully." onDismiss={() => setSaved(false)} />}
 
@@ -248,7 +328,7 @@ export function InstructorCourseEditorPage() {
                 {course.status === 'published' ? 'Published' : 'Publish course'}
               </Button>
               {course.status === 'published' && (
-                <Button variant="secondary" size="md" onClick={() => update({ status: 'draft' })}>Unpublish</Button>
+                <Button variant="secondary" size="md" onClick={handleUnpublish}>Unpublish</Button>
               )}
             </div>
           </FormSection>

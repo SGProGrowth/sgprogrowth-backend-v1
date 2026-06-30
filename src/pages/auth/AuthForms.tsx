@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth, type UserRole } from '../../contexts/AuthContext'
 import { getDashboardBasePath } from '../../data/dashboardData'
+import { ApiError } from '../../lib/api/errors'
 import { AuthLayout } from '../../layouts/AuthLayout'
 import { Button } from '../../components/ui/Button'
 
@@ -38,7 +39,7 @@ export function SignInPage({ role }: SignInPageProps) {
     setLoading(true)
     try {
       await signIn(email, password, role)
-      const redirectTo = (location.state as { from?: string } | null)?.from
+      const redirectTo = locationState?.from
       const safeRedirect =
         redirectTo &&
         redirectTo !== '/login' &&
@@ -47,8 +48,12 @@ export function SignInPage({ role }: SignInPageProps) {
           ? redirectTo
           : getDashboardBasePath(role)
       navigate(safeRedirect, { replace: true })
-    } catch {
-      setError('Unable to sign in. Please try again.')
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 403) {
+        setError(err.message)
+      } else {
+        setError(err instanceof ApiError ? err.message : 'Unable to sign in. Please try again.')
+      }
     } finally {
       setLoading(false)
     }
@@ -63,7 +68,7 @@ export function SignInPage({ role }: SignInPageProps) {
     >
       {registered && (
         <p className="mb-5 rounded-md border border-forest-200 bg-forest-50 px-4 py-3 text-sm text-forest-900">
-          Your account was created successfully. Sign in with your email and password to continue.
+          Your account was created successfully. Verify your email, then sign in to continue.
         </p>
       )}
 
@@ -80,6 +85,7 @@ export function SignInPage({ role }: SignInPageProps) {
             className="input-field w-full"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            required
           />
         </div>
 
@@ -88,9 +94,9 @@ export function SignInPage({ role }: SignInPageProps) {
             <label htmlFor="password" className="text-sm font-semibold text-ink">
               Password
             </label>
-            <button type="button" className="text-xs font-semibold text-forest-800 hover:text-forest-900">
+            <Link to="/forgot-password" className="text-xs font-semibold text-forest-800 hover:text-forest-900">
               Forgot password?
-            </button>
+            </Link>
           </div>
           <input
             id="password"
@@ -100,11 +106,22 @@ export function SignInPage({ role }: SignInPageProps) {
             className="input-field w-full"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            required
           />
         </div>
 
         {error && (
-          <p className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>
+          <div className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">
+            <p>{error}</p>
+            {error.toLowerCase().includes('verify') && (
+              <Link
+                to={`/resend-verification?email=${encodeURIComponent(email.trim())}`}
+                className="mt-2 inline-block font-semibold text-forest-800 hover:text-forest-900"
+              >
+                Resend verification email
+              </Link>
+            )}
+          </div>
         )}
 
         <Button
@@ -154,19 +171,23 @@ export function RegisterPage({ role }: RegisterPageProps) {
       setError('Please fill in all fields.')
       return
     }
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters.')
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters.')
       return
     }
     setLoading(true)
     try {
-      await register(name, email, password, role)
-      navigate(`/login/${role}`, {
-        replace: true,
-        state: { registered: true, email: email.trim() },
-      })
-    } catch {
-      setError('Unable to create account. Please try again.')
+      const result = await register(name, email, password, role)
+      if (result.requiresVerification) {
+        navigate(`/check-email?email=${encodeURIComponent(result.email)}&role=${result.role}`, { replace: true })
+      } else {
+        navigate(`/login/${result.role}`, {
+          replace: true,
+          state: { registered: true, email: result.email },
+        })
+      }
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Unable to create account. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -196,6 +217,7 @@ export function RegisterPage({ role }: RegisterPageProps) {
             className="input-field w-full"
             value={name}
             onChange={(e) => setName(e.target.value)}
+            required
           />
         </div>
 
@@ -211,6 +233,7 @@ export function RegisterPage({ role }: RegisterPageProps) {
             className="input-field w-full"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            required
           />
         </div>
 
@@ -222,10 +245,12 @@ export function RegisterPage({ role }: RegisterPageProps) {
             id="password"
             type="password"
             autoComplete="new-password"
-            placeholder="At least 6 characters"
+            placeholder="At least 8 characters"
             className="input-field w-full"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            minLength={8}
+            required
           />
         </div>
 

@@ -166,9 +166,10 @@ export function DashboardSidebar({ role, open, onClose }: DashboardSidebarProps)
             <button
               type="button"
               onClick={() => {
-                signOut()
-                onClose()
-                navigate('/login', { replace: true })
+                void signOut().then(() => {
+                  onClose()
+                  navigate('/login', { replace: true })
+                })
               }}
               className="flex-1 rounded-md border border-stone-200 px-3 py-2 text-xs font-semibold text-ink-2 hover:bg-stone-50"
             >
@@ -293,9 +294,10 @@ export function DashboardHeader({
                 type="button"
                 className="block w-full px-4 py-2 text-left text-sm text-red-700 hover:bg-red-50"
                 onClick={() => {
-                  signOut()
-                  setShowUserMenu(false)
-                  navigate('/login', { replace: true })
+                  void signOut().then(() => {
+                    setShowUserMenu(false)
+                    navigate('/login', { replace: true })
+                  })
                 }}
               >
                 Sign out

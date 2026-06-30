@@ -1,24 +1,79 @@
+import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Breadcrumbs } from '../components/ui/Breadcrumbs'
 import { Container } from '../components/layout/Container'
 import { Button } from '../components/ui/Button'
 import { Rating } from '../components/ui/Rating'
-import { featuredCourses } from '../data/homepageData'
+import { LoadingState } from '../components/ui/LoadingState'
+import {
+  fetchCourseBySlug,
+  mapCatalogCourseToUi,
+  type CatalogCourseDetailDto,
+} from '../lib/api/courses'
+import type { Course } from '../data/homepageData'
+import { getErrorMessage } from '../lib/api/errors'
 
-const learningOutcomes: Record<string, string[]> = {
-  default: [
-    'Apply skills through guided projects and real-world scenarios',
-    'Receive 1:1 coaching and accountability from certified instructors',
-    'Prepare for industry certifications with structured milestones',
-    'Build a portfolio of work aligned to employer expectations',
-  ],
-}
+const defaultOutcomes = [
+  'Apply skills through guided projects and real-world scenarios',
+  'Receive 1:1 coaching and accountability from certified instructors',
+  'Prepare for industry certifications with structured milestones',
+  'Build a portfolio of work aligned to employer expectations',
+]
 
 export default function CourseDetail() {
   const { id } = useParams<{ id: string }>()
-  const course = featuredCourses.find((c) => c.id === id)
+  const [course, setCourse] = useState<(Course & { description?: string; learningOutcomes?: string[]; forTeams?: boolean }) | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [notFound, setNotFound] = useState(false)
 
-  if (!course) {
+  useEffect(() => {
+    if (!id) {
+      setNotFound(true)
+      setLoading(false)
+      return
+    }
+
+    let cancelled = false
+    setLoading(true)
+    setNotFound(false)
+
+    fetchCourseBySlug(id)
+      .then((res) => {
+        if (cancelled) return
+        const detail = res.course as CatalogCourseDetailDto
+        setCourse({
+          ...mapCatalogCourseToUi(detail),
+          description: detail.description,
+          learningOutcomes: detail.learningOutcomes,
+          forTeams: detail.forTeams,
+        })
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          if (getErrorMessage(err).toLowerCase().includes('not found')) setNotFound(true)
+          else setNotFound(true)
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [id])
+
+  if (loading) {
+    return (
+      <section className="section-padding">
+        <Container>
+          <LoadingState label="Loading course…" />
+        </Container>
+      </section>
+    )
+  }
+
+  if (notFound || !course) {
     return (
       <section className="section-padding">
         <Container>
@@ -34,7 +89,7 @@ export default function CourseDetail() {
     )
   }
 
-  const outcomes = learningOutcomes[course.id] ?? learningOutcomes.default
+  const outcomes = course.learningOutcomes?.length ? course.learningOutcomes : defaultOutcomes
 
   return (
     <section className="section-padding bg-white">
@@ -76,7 +131,9 @@ export default function CourseDetail() {
               >
                 {course.instructor}
               </a>
-              . This program combines structured learning paths with live coaching sessions designed for measurable career outcomes.
+              .{' '}
+              {course.description ||
+                'This program combines structured learning paths with live coaching sessions designed for measurable career outcomes.'}
             </p>
 
             <div className="mt-8 rounded-xl border border-stone-200 bg-stone-50 p-6">
@@ -84,7 +141,8 @@ export default function CourseDetail() {
               <p className="mt-3 text-sm leading-relaxed text-ink-2">
                 {course.forTeams
                   ? 'Built for teams and cohorts with private coaching, progress tracking, and enterprise reporting.'
-                  : 'Includes self-paced modules, weekly coaching check-ins, assignments with instructor feedback, and certification prep resources.'}
+                  : course.description ||
+                    'Includes self-paced modules, weekly coaching check-ins, assignments with instructor feedback, and certification prep resources.'}
               </p>
             </div>
 

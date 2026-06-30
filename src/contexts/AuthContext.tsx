@@ -2,22 +2,21 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from 'react'
 import {
-  displayNameFromEmail,
-  getOrCreateUserId,
-  getRegistration,
-  clearRegistration,
-  saveRegistration,
-  initialsFromName,
-  normalizeEmail,
-} from '../lib/auth/userSession'
+  loginAccount,
+  logoutAccount,
+  registerAccount,
+  restoreSession,
+  saveLoginSession,
+} from '../lib/api/auth'
+import { getErrorMessage } from '../lib/api/errors'
+import { clearAuthStorage, getStoredUser, type StoredAuthUser } from '../lib/api/tokenStorage'
 import { clearWorkspaceCache } from '../lib/workspaceCache'
-import { findInstructorProfileByEmail } from '../data/instructorProfiles'
-import { findStudentProfileByEmail } from '../data/studentProfiles'
 
 export type UserRole = 'student' | 'instructor'
 
@@ -27,101 +26,97 @@ export interface User {
   email: string
   role: UserRole
   avatarInitials: string
+  emailVerified: boolean
 }
 
 interface AuthContextValue {
   user: User | null
   isAuthenticated: boolean
+  isLoading: boolean
   signIn: (email: string, password: string, role: UserRole) => Promise<void>
-  register: (name: string, email: string, password: string, role: UserRole) => Promise<void>
-  signOut: () => void
+  register: (
+    name: string,
+    email: string,
+    password: string,
+    role: UserRole,
+  ) => Promise<{ email: string; role: UserRole; requiresVerification: boolean }>
+  signOut: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
-const STORAGE_KEY = 'sgpg-auth-user'
-
-function loadStoredUser(): User | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? (JSON.parse(raw) as User) : null
-  } catch {
-    return null
-  }
-}
-
-function resolveAuthUser(
-  email: string,
-  role: UserRole,
-  nameOverride?: string,
-): User {
-  const normalizedEmail = normalizeEmail(email)
-  const catalog =
-    role === 'instructor'
-      ? findInstructorProfileByEmail(normalizedEmail)
-      : findStudentProfileByEmail(normalizedEmail)
-
-  const fallbackName = displayNameFromEmail(
-    normalizedEmail,
-    role === 'instructor' ? 'Instructor' : 'Learner',
-  )
-  const name = nameOverride?.trim() || catalog?.name || fallbackName
-  const id = catalog?.id ?? getOrCreateUserId(normalizedEmail, role)
-
+function toUser(stored: StoredAuthUser): User {
   return {
-    id,
-    name,
-    email: email.trim(),
-    role,
-    avatarInitials: catalog?.avatarInitials ?? initialsFromName(name),
+    id: stored.id,
+    name: stored.name,
+    email: stored.email,
+    role: stored.role,
+    avatarInitials: stored.avatarInitials,
+    emailVerified: stored.emailVerified,
   }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(() => loadStoredUser())
+  const [user, setUser] = useState<User | null>(() => {
+    const stored = getStoredUser()
+    return stored ? toUser(stored) : null
+  })
+  const [isLoading, setIsLoading] = useState(true)
 
-  const persistUser = useCallback((next: User | null) => {
-    setUser(next)
-    if (next) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
-    } else {
-      localStorage.removeItem(STORAGE_KEY)
-      clearWorkspaceCache()
+  useEffect(() => {
+    let cancelled = false
+
+    async function bootstrap() {
+      try {
+        const restored = await restoreSession()
+        if (!cancelled && restored) {
+          setUser(toUser(restored))
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
+
+    bootstrap()
+    return () => {
+      cancelled = true
     }
   }, [])
 
-  const signIn = useCallback(
-    async (email: string, _password: string, role: UserRole) => {
-      // Replace with API call: POST /auth/login → { user, token }
-      const registration = getRegistration(email, role)
-      const next = resolveAuthUser(email, role, registration?.name)
-      clearRegistration(email, role)
-      persistUser(next)
-    },
-    [persistUser],
-  )
+  const signIn = useCallback(async (email: string, password: string, role: UserRole) => {
+    const response = await loginAccount({ email, password, role })
+    const next = saveLoginSession(response)
+    setUser(toUser(next))
+  }, [])
 
   const register = useCallback(
-    async (name: string, email: string, _password: string, role: UserRole) => {
-      // Replace with API call: POST /auth/register — creates account only, no session
-      saveRegistration(name, email, role)
+    async (name: string, email: string, password: string, role: UserRole) => {
+      const result = await registerAccount({ name, email, password, role })
+      return { email: result.email, role: result.role, requiresVerification: result.requiresVerification }
     },
     [],
   )
 
-  const signOut = useCallback(() => {
-    persistUser(null)
-  }, [persistUser])
+  const signOut = useCallback(async () => {
+    try {
+      await logoutAccount()
+    } finally {
+      clearAuthStorage()
+      clearWorkspaceCache()
+      setUser(null)
+    }
+  }, [])
 
   const value = useMemo(
     () => ({
       user,
       isAuthenticated: user !== null,
+      isLoading,
       signIn,
       register,
       signOut,
     }),
-    [user, signIn, register, signOut],
+    [user, isLoading, signIn, register, signOut],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
@@ -132,3 +127,5 @@ export function useAuth() {
   if (!ctx) throw new Error('useAuth must be used within AuthProvider')
   return ctx
 }
+
+export { getErrorMessage }
