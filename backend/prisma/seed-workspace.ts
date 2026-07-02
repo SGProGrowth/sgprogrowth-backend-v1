@@ -147,6 +147,7 @@ export async function seedWorkspace(prisma: PrismaClient) {
       organizationId: org.id,
       courseId: awsCourse.id,
       instructorId: aanya.id,
+      batchCode: 'AWS-JUN2026',
       name: 'AWS SAA — June 2026 Cohort',
       startDate: new Date('2026-06-01'),
       endDate: new Date('2026-08-15'),
@@ -154,6 +155,10 @@ export async function seedWorkspace(prisma: PrismaClient) {
       maxCapacity: 30,
       status: BatchStatus.active,
       completionRate: 68,
+      published: true,
+      instructors: {
+        create: { instructorId: aanya.id, role: 'lead', permissions: { manage: true } },
+      },
     },
   })
 
@@ -174,6 +179,15 @@ export async function seedWorkspace(prisma: PrismaClient) {
           { phase: 'Phase 2', title: 'Networking', description: 'VPC and security', status: 'in-progress' },
         ],
       },
+    },
+  })
+
+  await prisma.batchEnrollment.create({
+    data: {
+      batchId: awsBatch.id,
+      studentId: neha.id,
+      enrollmentId: nehaAws.id,
+      status: 'active',
     },
   })
 
@@ -214,6 +228,15 @@ export async function seedWorkspace(prisma: PrismaClient) {
       modulesCompleted: 9,
       hoursSpent: 56,
       lastAccessedAt: new Date(),
+    },
+  })
+
+  await prisma.batchEnrollment.create({
+    data: {
+      batchId: awsBatch.id,
+      studentId: ankit.id,
+      enrollmentId: ankitAws.id,
+      status: 'active',
     },
   })
 
@@ -311,20 +334,25 @@ export async function seedWorkspace(prisma: PrismaClient) {
       attemptNumber: 1,
       score: 85,
       maxScore: 100,
+      percentage: 85,
+      passed: true,
       status: 'graded',
+      timeTakenSeconds: 1200,
       submittedAt: new Date('2026-06-15'),
     },
   })
 
-  const qbItem = await prisma.questionBankItem.create({
+  const qbItem = await prisma.question.create({
     data: {
       organizationId: org.id,
       instructorId: aanya.id,
+      createdById: aanya.id,
+      updatedById: aanya.id,
       questionText: 'Which AWS service provides a managed relational database?',
       type: 'multiple_choice',
       category: 'AWS Core',
       difficulty: 'easy',
-      points: 1,
+      marks: 1,
       tags: ['RDS', 'Database'],
       options: { choices: ['RDS', 'S3', 'EC2', 'Lambda'] },
       correctAnswer: { answer: 'RDS' },
@@ -332,7 +360,7 @@ export async function seedWorkspace(prisma: PrismaClient) {
   })
 
   await prisma.quizQuestion.create({
-    data: { quizId: moduleQuiz.id, questionBankItemId: qbItem.id, sortOrder: 1 },
+    data: { quizId: moduleQuiz.id, questionId: qbItem.id, sortOrder: 1 },
   })
 
   await prisma.announcement.create({

@@ -31,8 +31,16 @@ export function StudentBatchesPage() {
 
       <div className="stat-grid-3 mb-6 sm:mb-8">
         <StatTile label="Active batches" value={active.length} hint="Currently enrolled" />
-        <StatTile label="Batchmates" value="7" hint="Across active cohorts" />
-        <StatTile label="Next group session" value="Jun 29" hint="AWS cohort sync · 6:00 PM" />
+        <StatTile
+          label="Batchmates"
+          value={active.reduce((s, b) => s + (b.batchmates?.length ?? 0), 0)}
+          hint="Across active cohorts"
+        />
+        <StatTile
+          label="Next group session"
+          value={active[0]?.nextSession?.split(' · ')[1] ?? '—'}
+          hint={active[0]?.nextSession?.split(' · ')[0] ?? 'No upcoming sessions'}
+        />
       </div>
 
       <TabBar tabs={tabs} active={tab} onChange={setTab} />

@@ -9,6 +9,12 @@ import { SelectField } from '../../../components/instructor/FormField'
 import { Button } from '../../../components/ui/Button'
 import { Breadcrumbs } from '../../../components/ui/Breadcrumbs'
 import { ResponsiveTable, MobileDataCard } from '../../../components/ui/ResponsiveTable'
+import {
+  downloadBatchImportTemplate,
+  executeBatchImport,
+  previewBatchImport,
+  type BatchImportPreviewRow,
+} from '../../../lib/api/batches'
 
 type ImportStep = 'upload' | 'preview' | 'complete'
 
@@ -16,11 +22,12 @@ const statusStyles = {
   valid: 'bg-green-50 text-green-800',
   warning: 'bg-gold-100 text-gold-900',
   error: 'bg-red-50 text-red-800',
+  imported: 'bg-green-50 text-green-800',
+  skipped: 'bg-stone-100 text-ink-3',
 }
 
 export function InstructorBulkImportPage() {
-  const { workspace } = useInstructorDashboard()
-  const bulkImportPreviewRows = workspace?.bulkImportPreview ?? []
+  const { workspace, refresh } = useInstructorDashboard()
   const instructorBatches = workspace?.batches ?? []
   const instructorCourses = workspace?.courses ?? []
   const [step, setStep] = useState<ImportStep>('upload')
@@ -28,26 +35,59 @@ export function InstructorBulkImportPage() {
   const [importing, setImporting] = useState(false)
   const [showTemplate, setShowTemplate] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [defaultCourseSlug, setDefaultCourseSlug] = useState(instructorCourses[0]?.id ?? '')
+  const [defaultBatchId, setDefaultBatchId] = useState('')
+  const [previewRows, setPreviewRows] = useState<BatchImportPreviewRow[]>([])
+  const [jobId, setJobId] = useState<string | null>(null)
+  const [importSummary, setImportSummary] = useState({ success: 0, warning: 0, error: 0 })
 
-  const validCount = bulkImportPreviewRows.filter((r) => r.status === 'valid').length
-  const warningCount = bulkImportPreviewRows.filter((r) => r.status === 'warning').length
-  const errorCount = bulkImportPreviewRows.filter((r) => r.status === 'error').length
+  const validCount = previewRows.filter((r) => r.status === 'valid').length
+  const warningCount = previewRows.filter((r) => r.status === 'warning').length
+  const errorCount = previewRows.filter((r) => r.status === 'error').length
 
-  const handleUpload = () => {
+  const handleUpload = async (file: File) => {
     setUploading(true)
     setError(null)
-    setTimeout(() => {
-      setUploading(false)
+    try {
+      const result = await previewBatchImport(file, {
+        defaultBatchId: defaultBatchId || undefined,
+        defaultCourseSlug: defaultCourseSlug || undefined,
+      })
+      setPreviewRows(result.rows)
+      setJobId(result.jobId)
       setStep('preview')
-    }, 1500)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to parse file')
+    } finally {
+      setUploading(false)
+    }
   }
 
-  const runImport = () => {
+  const runImport = async () => {
+    if (!jobId) return
     setImporting(true)
-    setTimeout(() => {
-      setImporting(false)
+    setError(null)
+    try {
+      const result = await executeBatchImport({ jobId, partialImport: true })
+      setImportSummary({
+        success: result.successCount,
+        warning: warningCount,
+        error: result.failureCount,
+      })
       setStep('complete')
-    }, 2000)
+      refresh()
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Import failed')
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  const resetFlow = () => {
+    setStep('upload')
+    setPreviewRows([])
+    setJobId(null)
+    setError(null)
   }
 
   return (
@@ -62,7 +102,7 @@ export function InstructorBulkImportPage() {
       <PageIntro
         eyebrow="Enrollments"
         title="Bulk Student Import"
-        description="Import student enrollments from a CSV file. Map columns, validate data, and enroll in batches."
+        description="Import student enrollments from a CSV or Excel file. Map columns, validate data, and enroll in batches."
         action={
           <button type="button" onClick={() => setShowTemplate(true)} className="text-sm font-semibold text-forest-800 hover:text-forest-900">
             Download CSV template
@@ -70,7 +110,6 @@ export function InstructorBulkImportPage() {
         }
       />
 
-      {/* Step indicator */}
       <div className="mb-8 flex items-center gap-2">
         {(['upload', 'preview', 'complete'] as const).map((s, i) => (
           <div key={s} className="flex items-center gap-2">
@@ -92,15 +131,22 @@ export function InstructorBulkImportPage() {
           <div className="mb-8 grid gap-4 sm:grid-cols-2">
             <SelectField
               label="Default course"
+              value={defaultCourseSlug}
+              onChange={(e) => setDefaultCourseSlug(e.target.value)}
               options={instructorCourses.map((c) => ({ value: c.id, label: c.title }))}
             />
             <SelectField
               label="Default batch"
-              options={instructorBatches.filter((b) => b.status !== 'completed').map((b) => ({ value: b.id, label: b.name }))}
+              value={defaultBatchId}
+              onChange={(e) => setDefaultBatchId(e.target.value)}
+              options={[
+                { value: '', label: 'Select batch (optional)' },
+                ...instructorBatches.filter((b) => b.status !== 'completed').map((b) => ({ value: b.id, label: b.name })),
+              ]}
             />
           </div>
 
-          <Panel title="Upload CSV file">
+          <Panel title="Upload CSV or Excel file">
             {error && (
               <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">
                 {error}
@@ -108,9 +154,9 @@ export function InstructorBulkImportPage() {
             )}
             <UploadZone
               label=""
-              accept=".csv,.xlsx"
+              accept=".csv,.xlsx,.xls"
               hint="CSV or Excel file with columns: full_name, email, course_slug, batch_name"
-              onUpload={() => handleUpload()}
+              onUpload={handleUpload}
             />
             {uploading && (
               <div className="mt-4 flex items-center gap-3 text-sm text-ink-3">
@@ -137,13 +183,12 @@ export function InstructorBulkImportPage() {
             <StatTile label="Valid rows" value={validCount} hint="Ready to import" />
             <StatTile label="Warnings" value={warningCount} hint="Review before importing" />
             <StatTile label="Errors" value={errorCount} hint="Will be skipped" />
-            <StatTile label="Total rows" value={bulkImportPreviewRows.length} />
+            <StatTile label="Total rows" value={previewRows.length} />
           </div>
 
           <Panel title="Import preview" noPadding>
-            {/* Mobile cards */}
             <div className="space-y-3 p-4 md:hidden">
-              {bulkImportPreviewRows.map((row) => (
+              {previewRows.map((row) => (
                 <MobileDataCard
                   key={row.row}
                   title={`Row ${row.row}: ${row.name}`}
@@ -162,7 +207,6 @@ export function InstructorBulkImportPage() {
               ))}
             </div>
 
-            {/* Desktop table */}
             <ResponsiveTable className="hidden md:block">
               <table className="w-full min-w-[680px] text-sm">
                 <thead>
@@ -176,7 +220,7 @@ export function InstructorBulkImportPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-stone-100">
-                  {bulkImportPreviewRows.map((row) => (
+                  {previewRows.map((row) => (
                     <tr key={row.row} className={row.status === 'error' ? 'bg-red-50/30' : ''}>
                       <td className="px-4 py-3 text-ink-3">{row.row}</td>
                       <td className="px-4 py-3 font-medium text-ink">{row.name}</td>
@@ -196,6 +240,12 @@ export function InstructorBulkImportPage() {
             </ResponsiveTable>
           </Panel>
 
+          {error && (
+            <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">
+              {error}
+            </div>
+          )}
+
           <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:gap-3">
             <Button variant="secondary" size="md" className="w-full sm:w-auto" onClick={() => setStep('upload')}>Back</Button>
             <Button variant="primary" size="md" className="w-full sm:w-auto" onClick={runImport} disabled={importing || validCount === 0}>
@@ -214,11 +264,11 @@ export function InstructorBulkImportPage() {
           </div>
           <h2 className="font-display text-xl font-bold text-ink mt-4">Import complete</h2>
           <p className="text-sm text-ink-3 mt-2 max-w-md mx-auto">
-            {validCount} students enrolled successfully. {warningCount} row(s) skipped with warnings. {errorCount} row(s) failed validation.
+            {importSummary.success} students enrolled successfully. {importSummary.warning} row(s) skipped with warnings. {importSummary.error} row(s) failed validation.
           </p>
           <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-center sm:gap-3">
             <Link to="/instructor/students" className="w-full sm:w-auto"><Button variant="primary" size="md" className="w-full">View students</Button></Link>
-            <Button variant="secondary" size="md" className="w-full sm:w-auto" onClick={() => setStep('upload')}>Import another file</Button>
+            <Button variant="secondary" size="md" className="w-full sm:w-auto" onClick={resetFlow}>Import another file</Button>
           </div>
         </div>
       )}
@@ -230,7 +280,9 @@ export function InstructorBulkImportPage() {
           Sneha Desai,sneha.d@example.com,aws-solutions-architect,AWS SAA — June 2026,+91-9876543210,{'\n'}
           Vikram Singh,vikram.s@example.com,it-project-management,IT PM — May 2026,,
         </pre>
-        <Button variant="primary" size="sm" className="mt-4">Download template.csv</Button>
+        <Button variant="primary" size="sm" className="mt-4" onClick={() => downloadBatchImportTemplate().catch(() => setError('Failed to download template'))}>
+          Download template.csv
+        </Button>
       </Modal>
     </div>
   )

@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useInstructorDashboard } from '../../../hooks/useInstructorDashboard'
+import { fetchInstructorAnalytics, fetchInstructorHeatmap, type InstructorAnalytics } from '../../../lib/api/analytics'
+import { downloadAssignmentReport, downloadBatchReport, downloadCertificateReport, downloadCourseReport, downloadQuizReport } from '../../../lib/api/reports'
 import { PageIntro, Panel, StatTile } from '../../../components/dashboard/PageShell'
+import { SelectField } from '../../../components/instructor/FormField'
 import { Button } from '../../../components/ui/Button'
 
 export function InstructorNotificationsPage() {
@@ -93,10 +96,34 @@ export function InstructorCalendarPage() {
 
 export function InstructorAnalyticsPage() {
   const { workspace } = useInstructorDashboard()
-  const analytics = workspace?.analytics
   const summary = workspace?.summary
+  const courses = workspace?.courses ?? []
+  const [courseSlug, setCourseSlug] = useState(courses[0]?.id ?? '')
+  const [analytics, setAnalytics] = useState<InstructorAnalytics | null>(null)
+  const [heatmap, setHeatmap] = useState<{ grid: Array<{ day: string; hours: Array<{ hour: number; count: number }> }> } | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  if (!analytics || !summary) {
+  useEffect(() => {
+    if (courses.length && !courseSlug) setCourseSlug(courses[0].id)
+  }, [courses, courseSlug])
+
+  useEffect(() => {
+    setLoading(true)
+    setError(null)
+    Promise.all([
+      fetchInstructorAnalytics(courseSlug ? { courseSlug } : undefined),
+      fetchInstructorHeatmap(courseSlug || undefined),
+    ])
+      .then(([a, h]) => {
+        setAnalytics(a)
+        setHeatmap(h as typeof heatmap)
+      })
+      .catch((err: unknown) => setError(err instanceof Error ? err.message : 'Failed to load analytics'))
+      .finally(() => setLoading(false))
+  }, [courseSlug])
+
+  if (!summary) {
     return (
       <div className="animate-rise rounded-xl border border-stone-200 bg-white px-6 py-12 text-center">
         <p className="font-display text-base font-bold text-ink">Analytics unavailable</p>
@@ -105,67 +132,156 @@ export function InstructorAnalyticsPage() {
     )
   }
 
-  const { enrollmentTrend, completionTrend, revenueTrend, engagementRate, avgSessionRating, topCourses } = analytics
-  const maxEnroll = Math.max(...enrollmentTrend, 1)
-  const maxRevenue = Math.max(...revenueTrend, 1)
+  const enrollmentTrend = analytics?.enrollmentTrend ?? []
+  const completionTrend = analytics?.completionTrend ?? []
+  const maxEnroll = Math.max(...enrollmentTrend.map((t) => t.count), 1)
+  const maxHeat = heatmap
+    ? Math.max(...heatmap.grid.flatMap((g) => g.hours.map((h) => h.count)), 1)
+    : 1
 
   return (
     <div className="animate-rise">
-      <PageIntro eyebrow="Insights" title="Analytics" description="Enrollment trends, completion rates, and revenue performance." />
+      <PageIntro
+        eyebrow="Insights"
+        title="Analytics"
+        description="Enrollment trends, completion rates, engagement, and batch performance."
+        action={
+          <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" size="sm" onClick={() => downloadCourseReport('csv', courseSlug || undefined).catch(() => setError('Export failed'))}>
+              Export courses
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => downloadAssignmentReport('csv', courseSlug || undefined).catch(() => setError('Export failed'))}>
+              Assignments CSV
+            </Button>
+          </div>
+        }
+      />
 
-      <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile label="Engagement rate" value={`${engagementRate}%`} hint="Active learners this month" />
-        <StatTile label="Session rating" value={avgSessionRating} hint="Coaching satisfaction" />
-        <StatTile label="Monthly revenue" value={summary.monthlyRevenue} hint="Current period" />
-        <StatTile label="New enrollments" value={summary.newEnrollments} hint="Last 30 days" />
+      {error && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>
+      )}
+
+      <div className="mb-6 max-w-xs">
+        <SelectField
+          label="Filter by course"
+          value={courseSlug}
+          onChange={(e) => setCourseSlug(e.target.value)}
+          options={[
+            { value: '', label: 'All courses' },
+            ...courses.map((c) => ({ value: c.id, label: c.title })),
+          ]}
+        />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Panel title="Enrollment trend">
-          <div className="flex items-end gap-2 h-40">
-            {enrollmentTrend.map((v, i) => (
-              <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                <div className="w-full rounded-sm bg-forest-600" style={{ height: `${(v / maxEnroll) * 100}%`, minHeight: 8 }} />
-                <span className="text-[10px] text-ink-4">W{i + 1}</span>
-              </div>
-            ))}
+      {loading && !analytics ? (
+        <p className="text-sm text-ink-3 py-8 text-center">Loading analytics…</p>
+      ) : analytics && (
+        <>
+          <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <StatTile label="Total students" value={analytics.totalStudents} hint={`${analytics.activeStudents} active (7d)`} />
+            <StatTile label="Engagement rate" value={`${analytics.engagementRate}%`} hint="Active learners" />
+            <StatTile label="Course completion" value={`${analytics.courseCompletionRate}%`} hint="Completed enrollments" />
+            <StatTile label="At risk" value={analytics.studentsAtRisk} hint="Below 30% progress" />
           </div>
-        </Panel>
 
-        <Panel title="Completion rate trend">
-          <div className="flex items-end gap-2 h-40">
-            {completionTrend.map((v, i) => (
-              <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                <div className="w-full rounded-sm bg-gold-500" style={{ height: `${v}%`, minHeight: 8 }} />
-                <span className="text-[10px] text-ink-4">W{i + 1}</span>
-              </div>
-            ))}
+          <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <StatTile label="Assignment completion" value={`${analytics.assignmentCompletionRate}%`} hint={`Avg score ${analytics.averageAssignmentScore}`} />
+            <StatTile label="Quiz completion" value={`${analytics.quizCompletionRate}%`} hint={`Avg score ${analytics.averageQuizScore}%`} />
+            <StatTile label="Certificates issued" value={analytics.certificatesIssued} hint="Selected period" />
+            <StatTile label="New enrollments" value={summary.newEnrollments} hint="Last 30 days" />
           </div>
-        </Panel>
 
-        <Panel title="Revenue trend" className="lg:col-span-2">
-          <div className="flex items-end gap-2 h-32">
-            {revenueTrend.map((v, i) => (
-              <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                <div className="w-full rounded-sm bg-forest-800" style={{ height: `${(v / maxRevenue) * 100}%`, minHeight: 8 }} />
-                <span className="text-[10px] text-ink-4">W{i + 1}</span>
+          {analytics.studentsAtRiskList.length > 0 && (
+            <Panel title="Students falling behind" className="mb-8">
+              <ul className="space-y-3">
+                {analytics.studentsAtRiskList.map((s) => (
+                  <li key={s.studentId} className="flex items-center justify-between text-sm">
+                    <span className="font-medium text-ink">{s.name}</span>
+                    <span className="text-ink-3">{s.courseTitle} · {s.progressPct}%</span>
+                  </li>
+                ))}
+              </ul>
+            </Panel>
+          )}
+
+          {analytics.batchPerformance.length > 0 && (
+            <Panel title="Batch performance" className="mb-8">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {analytics.batchPerformance.map((b) => (
+                  <div key={b.id} className="rounded-lg border border-stone-100 p-4">
+                    <p className="font-semibold text-ink text-sm">{b.name}</p>
+                    <p className="text-xs text-ink-3 mt-1">{b.courseTitle} · {b.studentsCount} students</p>
+                    <p className="text-sm font-bold text-forest-800 mt-2">{b.completionRate}% completion</p>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </Panel>
-      </div>
+            </Panel>
+          )}
 
-      <Panel title="Top performing courses" className="mt-6">
-        <div className="grid gap-4 sm:grid-cols-3">
-          {topCourses.map((c) => (
-            <div key={c.id} className="rounded-lg border border-stone-100 p-4">
-              <p className="font-semibold text-ink text-sm">{c.title}</p>
-              <p className="text-xs text-ink-3 mt-1">{c.students} students · {c.completion}% completion</p>
-              <p className="text-sm font-bold text-forest-800 mt-2">★ {c.rating}</p>
+          <div className="grid gap-6 lg:grid-cols-2 mb-8">
+            <Panel title="Enrollment trend">
+              <div className="flex items-end gap-2 h-40">
+                {enrollmentTrend.map((t) => (
+                  <div key={t.month} className="flex-1 flex flex-col items-center gap-1">
+                    <div className="w-full rounded-sm bg-forest-600" style={{ height: `${(t.count / maxEnroll) * 100}%`, minHeight: 8 }} />
+                    <span className="text-[10px] text-ink-4">{t.month}</span>
+                  </div>
+                ))}
+              </div>
+            </Panel>
+
+            <Panel title="Completion rate trend">
+              <div className="flex items-end gap-2 h-40">
+                {completionTrend.map((t) => (
+                  <div key={t.month} className="flex-1 flex flex-col items-center gap-1">
+                    <div className="w-full rounded-sm bg-gold-500" style={{ height: `${t.rate}%`, minHeight: 8 }} />
+                    <span className="text-[10px] text-ink-4">{t.month}</span>
+                  </div>
+                ))}
+              </div>
+            </Panel>
+          </div>
+
+          {heatmap && (
+            <Panel title="Learning activity heatmap" className="mb-8">
+              <div className="overflow-x-auto">
+                <div className="min-w-[640px] grid gap-1" style={{ gridTemplateColumns: '48px repeat(24, 1fr)' }}>
+                  <div />
+                  {Array.from({ length: 24 }, (_, h) => (
+                    <div key={h} className="text-[8px] text-center text-ink-4">{h}</div>
+                  ))}
+                  {heatmap.grid.map((row) => (
+                    <div key={row.day} className="contents">
+                      <div className="text-[10px] font-semibold text-ink-3 pr-1">{row.day}</div>
+                      {row.hours.map((cell) => (
+                        <div
+                          key={`${row.day}-${cell.hour}`}
+                          className="aspect-square rounded-sm"
+                          style={{
+                            backgroundColor: cell.count
+                              ? `rgba(27, 67, 50, ${0.15 + (cell.count / maxHeat) * 0.85})`
+                              : '#f5f5f4',
+                          }}
+                          title={`${cell.count} activities`}
+                        />
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </Panel>
+          )}
+
+          <Panel title="Download reports">
+            <div className="flex flex-wrap gap-2">
+              <Button variant="secondary" size="sm" onClick={() => downloadAssignmentReport('csv', courseSlug || undefined)}>Assignments CSV</Button>
+              <Button variant="secondary" size="sm" onClick={() => downloadQuizReport('pdf', courseSlug || undefined)}>Quizzes PDF</Button>
+              <Button variant="secondary" size="sm" onClick={() => downloadBatchReport('xlsx')}>Batches Excel</Button>
+              <Button variant="secondary" size="sm" onClick={() => downloadCertificateReport('csv', courseSlug || undefined)}>Certificates CSV</Button>
             </div>
-          ))}
-        </div>
-      </Panel>
+          </Panel>
+        </>
+      )}
     </div>
   )
 }

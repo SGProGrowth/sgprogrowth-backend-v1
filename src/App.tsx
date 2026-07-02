@@ -11,6 +11,7 @@ import { GuestRoute, ProtectedRoute } from './routes/ProtectedRoute'
 import { HomePage } from './pages/HomePage'
 import CoursesPage from './pages/CoursesPage'
 import CourseDetail from './pages/CourseDetail'
+import { VerifyCertificatePage } from './pages/VerifyCertificatePage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import {
   StudentOverviewPage,
@@ -18,6 +19,9 @@ import {
   StudentProgressPage,
   StudentAssignmentsPage,
   StudentQuizzesPage,
+  StudentQuizStartPage,
+  StudentQuizPlayerPage,
+  StudentQuizResultPage,
   StudentCertificatesPage,
   StudentNotificationsPage,
   StudentSettingsPage,
@@ -47,6 +51,7 @@ import {
   InstructorBatchesPage,
   InstructorBulkImportPage,
   InstructorEarningsPage,
+  InstructorCertificatesPage,
 } from './routes/dashboardPages'
 
 function App() {
@@ -59,6 +64,8 @@ function App() {
             <Route path="/" element={<HomePage />} />
             <Route path="/courses" element={<CoursesPage />} />
             <Route path="/courses/:id" element={<CourseDetail />} />
+            <Route path="/verify/:credentialId" element={<VerifyCertificatePage />} />
+            <Route path="/verify" element={<VerifyCertificatePage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Route>
 
@@ -89,6 +96,9 @@ function App() {
             <Route path="progress" element={<StudentProgressPage />} />
             <Route path="assignments" element={<StudentAssignmentsPage />} />
             <Route path="quizzes" element={<StudentQuizzesPage />} />
+            <Route path="quizzes/:quizId/start" element={<StudentQuizStartPage />} />
+            <Route path="quizzes/:quizId/attempt/:attemptId" element={<StudentQuizPlayerPage />} />
+            <Route path="quizzes/:quizId/results/:attemptId" element={<StudentQuizResultPage />} />
             <Route path="certificates" element={<StudentCertificatesPage />} />
             <Route path="notifications" element={<StudentNotificationsPage />} />
             <Route path="settings" element={<StudentSettingsPage />} />
@@ -124,6 +134,7 @@ function App() {
             <Route path="assignments" element={<InstructorAssignmentsPage />} />
             <Route path="quizzes" element={<InstructorQuizzesPage />} />
             <Route path="question-bank" element={<InstructorQuestionBankPage />} />
+            <Route path="certificates" element={<InstructorCertificatesPage />} />
             <Route path="batches" element={<InstructorBatchesPage />} />
             <Route path="coaching" element={<InstructorCoachingPage />} />
             <Route path="announcements" element={<InstructorAnnouncementsPage />} />

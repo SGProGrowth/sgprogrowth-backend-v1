@@ -93,6 +93,7 @@ export const instructorNavSections: NavSection[] = [
       { label: 'Assignments', href: '/instructor/assignments', icon: 'assignments', description: 'Create & manage coursework' },
       { label: 'Quizzes', href: '/instructor/quizzes', icon: 'quizzes', description: 'Generic & course quizzes' },
       { label: 'Question Bank', href: '/instructor/question-bank', icon: 'question-bank', description: 'Reusable assessment items' },
+      { label: 'Certificates', href: '/instructor/certificates', icon: 'certificates', description: 'Issue & manage credentials' },
       { label: 'Grade Management', href: '/instructor/grades', icon: 'grades', description: 'Review submissions' },
       { label: 'Announcements', href: '/instructor/announcements', icon: 'announcements', description: 'Course communications' },
       { label: 'Messages', href: '/instructor/messages', icon: 'messages', description: 'Student inbox' },

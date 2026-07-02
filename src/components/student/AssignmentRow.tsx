@@ -17,9 +17,11 @@ const typeLabels = {
 
 interface AssignmentRowProps {
   assignment: Assignment
+  onSubmit?: (assignment: Assignment) => void
+  onViewFeedback?: (assignment: Assignment) => void
 }
 
-export function AssignmentRow({ assignment }: AssignmentRowProps) {
+export function AssignmentRow({ assignment, onSubmit, onViewFeedback }: AssignmentRowProps) {
   const status = statusConfig[assignment.status]
 
   return (
@@ -34,7 +36,7 @@ export function AssignmentRow({ assignment }: AssignmentRowProps) {
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="font-semibold text-ink">{assignment.title}</h3>
           <span className="rounded-md bg-stone-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-ink-3">
-            {typeLabels[assignment.type]}
+            {typeLabels[assignment.type] ?? assignment.type}
           </span>
         </div>
         <p className="text-sm text-ink-3 mt-0.5">{assignment.courseTitle}</p>
@@ -55,10 +57,13 @@ export function AssignmentRow({ assignment }: AssignmentRowProps) {
           {status.label}
         </span>
         {(assignment.status === 'pending' || assignment.status === 'overdue') && (
-          <Button variant="primary" size="sm">Submit</Button>
+          <Button variant="primary" size="sm" onClick={() => onSubmit?.(assignment)}>Submit</Button>
+        )}
+        {assignment.status === 'submitted' && (
+          <Button variant="secondary" size="sm" onClick={() => onSubmit?.(assignment)}>View</Button>
         )}
         {assignment.status === 'graded' && (
-          <Button variant="secondary" size="sm">View feedback</Button>
+          <Button variant="secondary" size="sm" onClick={() => onViewFeedback?.(assignment)}>View feedback</Button>
         )}
       </div>
     </div>

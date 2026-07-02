@@ -89,6 +89,12 @@ export class AuthController {
     return this.authService.refresh(dto.refreshToken)
   }
 
+  @Get('test/token')
+  @ApiOperation({ summary: 'E2E test helper — retrieve last auth token (dev only)' })
+  async getTestToken(@Query('email') email: string, @Query('type') type: 'verify' | 'reset') {
+    return this.authService.getTestToken(email, type)
+  }
+
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Revoke refresh token' })

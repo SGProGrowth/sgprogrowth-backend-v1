@@ -136,7 +136,7 @@ export interface InstructorQuiz {
   questions: number
   duration: string
   attempts: number
-  status: 'draft' | 'published'
+  status: 'draft' | 'published' | 'archived'
   isGeneric: boolean
   passScore?: number
   lastUpdated?: string
@@ -197,7 +197,16 @@ export interface BulkImportRow {
   message?: string
 }
 
-export type QuestionType = 'multiple-choice' | 'true-false' | 'short-answer' | 'essay'
+export type QuestionType =
+  | 'multiple-choice'
+  | 'multiple-choice-multi'
+  | 'true-false'
+  | 'short-answer'
+  | 'essay'
+  | 'long-answer'
+  | 'fill-blank'
+  | 'matching'
+  | 'ordering'
 export type QuestionDifficulty = 'easy' | 'medium' | 'hard'
 export type InstructorBatchStatus = 'active' | 'upcoming' | 'completed' | 'draft'
 

@@ -8,6 +8,7 @@ import { useInstructorCourse, useInstructorDashboard } from '../../../hooks/useI
 import { PageIntro, TabBar } from '../../../components/dashboard/PageShell'
 import { FormField, FormSection, SelectField, TextAreaField, ToggleField } from '../../../components/instructor/FormField'
 import { UploadZone } from '../../../components/instructor/UploadZone'
+import { uploadCourseBanner, uploadCourseThumbnail } from '../../../lib/api/media'
 import { CurriculumEditor } from '../../../components/instructor/CurriculumEditor'
 import { StatusBadge } from '../../../components/instructor/StatusBadge'
 import { SuccessBanner, ConfirmDialog } from '../../../components/instructor/Modal'
@@ -279,8 +280,27 @@ export function InstructorCourseEditorPage() {
 
       {tab === 'media' && (
         <div className="grid gap-6 max-w-3xl lg:grid-cols-2">
-          <UploadZone label="Course thumbnail" hint="Recommended 400×300px — shown in catalog" preview={course.thumbnail ? course.title : undefined} onUpload={() => update({ thumbnail: 'uploaded' })} />
-          <UploadZone label="Course banner" aspect="banner" hint="Recommended 1200×400px — shown on course page" preview={course.banner ? course.title : undefined} onUpload={() => update({ banner: 'uploaded' })} />
+          <UploadZone
+            label="Course thumbnail"
+            hint="Recommended 400×300px — shown in catalog"
+            preview={course.thumbnail && !course.thumbnail.startsWith('http') ? course.title : undefined}
+            previewUrl={course.thumbnail?.startsWith('http') ? course.thumbnail : undefined}
+            uploadFn={async (file, onProgress) => {
+              const asset = await uploadCourseThumbnail(course.id ?? '', file, onProgress)
+              update({ thumbnail: asset.downloadUrl })
+            }}
+          />
+          <UploadZone
+            label="Course banner"
+            aspect="banner"
+            hint="Recommended 1200×400px — shown on course page"
+            preview={course.banner && !course.banner.startsWith('http') ? course.title : undefined}
+            previewUrl={course.banner?.startsWith('http') ? course.banner : undefined}
+            uploadFn={async (file, onProgress) => {
+              const asset = await uploadCourseBanner(course.id ?? '', file, onProgress)
+              update({ banner: asset.downloadUrl })
+            }}
+          />
         </div>
       )}
 

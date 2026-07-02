@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
 import { PrismaService } from '../../prisma/prisma.module'
+import { AnalyticsService } from '../analytics/analytics.service'
 
 function initials(name: string): string {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase() ?? '').join('')
@@ -20,38 +21,20 @@ function formatDate(date: Date): string {
 }
 
 const defaultAnalytics = {
-  enrollmentTrend: [
-    { month: 'Jan', count: 12 },
-    { month: 'Feb', count: 18 },
-    { month: 'Mar', count: 24 },
-    { month: 'Apr', count: 31 },
-    { month: 'May', count: 38 },
-    { month: 'Jun', count: 45 },
-  ],
-  completionTrend: [
-    { month: 'Jan', rate: 62 },
-    { month: 'Feb', rate: 65 },
-    { month: 'Mar', rate: 68 },
-    { month: 'Apr', rate: 71 },
-    { month: 'May', rate: 74 },
-    { month: 'Jun', rate: 76 },
-  ],
-  revenueTrend: [
-    { month: 'Jan', amount: 28000 },
-    { month: 'Feb', amount: 32000 },
-    { month: 'Mar', amount: 35000 },
-    { month: 'Apr', amount: 38200 },
-    { month: 'May', amount: 41000 },
-    { month: 'Jun', amount: 42800 },
-  ],
-  engagementRate: 78,
+  enrollmentTrend: [] as number[],
+  completionTrend: [] as number[],
+  revenueTrend: [] as number[],
+  engagementRate: 0,
   avgSessionRating: 4.8,
-  topCourses: [] as Array<{ title: string; students: number; revenue: string }>,
+  topCourses: [] as Array<{ id?: string; title: string; students: number; completion?: number; revenue?: string; rating?: number }>,
 }
 
 @Injectable()
 export class InstructorsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private analyticsService: AnalyticsService,
+  ) {}
 
   async getWorkspace(userId: string) {
     const user = await this.prisma.user.findUnique({
@@ -78,7 +61,9 @@ export class InstructorsService {
           },
         },
         quizzes: { include: { course: true, questions: true } },
-        questionBankItems: true,
+        questions: {
+          include: { _count: { select: { quizQuestions: true } } },
+        },
         announcements: { include: { course: true } },
         notifications: { orderBy: { createdAt: 'desc' }, take: 50 },
         calendarEvents: { orderBy: { startsAt: 'asc' }, take: 30 },
@@ -247,35 +232,41 @@ export class InstructorsService {
       allowLate: a.allowLate,
     }))
 
-    const questionBank = user.questionBankItems.map((q) => ({
+    const questionBank = user.questions.map((q) => ({
       id: q.id,
       instructorId,
       question: q.questionText,
-      type: q.type.replace('_', '-') as 'multiple-choice' | 'true-false' | 'short-answer' | 'essay',
+      type: q.type.replace(/_/g, '-').replace('multiple-choice', 'multiple-choice') as
+        | 'multiple-choice'
+        | 'true-false'
+        | 'short-answer'
+        | 'essay',
       category: q.category ?? 'General',
       difficulty: q.difficulty as 'easy' | 'medium' | 'hard',
       courseTitle: undefined as string | undefined,
       tags: q.tags,
-      usedIn: 0,
-      points: q.points,
+      usedIn: q._count.quizQuestions,
+      points: q.marks,
       status: q.status === 'active' ? ('active' as const) : ('archived' as const),
     }))
 
     const batches = await this.prisma.batch.findMany({
-      where: { instructorId: userId },
-      include: { course: true },
+      where: {
+        OR: [{ instructorId: userId }, { instructors: { some: { instructorId: userId } } }],
+      },
+      include: { course: true, batchEnrollments: { where: { status: { not: 'dropped' } } } },
     })
 
     const batchDtos = batches.map((b) => ({
       id: b.id,
-      instructorId,
+      instructorId: userId,
       name: b.name,
       courseId: b.course.slug,
       courseTitle: b.course.title,
       startDate: formatDate(b.startDate),
       endDate: b.endDate ? formatDate(b.endDate) : 'TBD',
-      status: b.status as 'active' | 'upcoming' | 'completed' | 'cancelled',
-      studentsCount: 0,
+      status: b.status as 'active' | 'upcoming' | 'completed' | 'cancelled' | 'draft' | 'archived',
+      studentsCount: b.batchEnrollments.filter((e) => e.status !== 'waitlist').length,
       maxCapacity: b.maxCapacity,
       schedule: b.schedule ?? '',
       completionRate: Math.round(b.completionRate),
@@ -300,13 +291,20 @@ export class InstructorsService {
       studentsEnrolled: students.length,
     }
 
-    const analytics = {
-      ...defaultAnalytics,
-      topCourses: published.slice(0, 3).map((c) => ({
-        title: c.title,
-        students: c.students,
-        revenue: c.revenue,
-      })),
+    let analytics = defaultAnalytics
+    try {
+      analytics = await this.analyticsService.getInstructorOverviewForWorkspace(userId)
+    } catch {
+      analytics = {
+        ...defaultAnalytics,
+        topCourses: published.slice(0, 3).map((c) => ({
+          id: c.id,
+          title: c.title,
+          students: c.students,
+          completion: c.completion,
+          rating: c.rating,
+        })),
+      }
     }
 
     return {

@@ -1,0 +1,131 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: sgpg
+          POSTGRES_PASSWORD: sgpg_dev_password
+          POSTGRES_DB: sgpg_lms
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U sgpg -d sgpg_lms"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Generate Prisma client
+        working-directory: backend
+        run: npx prisma generate
+
+      - name: Run migrations
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://sgpg:sgpg_dev_password@localhost:5432/sgpg_lms?schema=public
+        run: npx prisma migrate deploy
+
+      - name: Seed database
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://sgpg:sgpg_dev_password@localhost:5432/sgpg_lms?schema=public
+        run: npm run db:seed
+
+      - name: Build backend
+        working-directory: backend
+        run: npm run build
+
+      - name: Run unit tests
+        working-directory: backend
+        run: npm test -- --passWithNoTests
+
+      - name: Start API
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://sgpg:sgpg_dev_password@localhost:5432/sgpg_lms?schema=public
+          REDIS_URL: redis://localhost:6379
+          JWT_ACCESS_SECRET: ci-access-secret-minimum-32-characters-long
+          JWT_REFRESH_SECRET: ci-refresh-secret-minimum-32-characters-long
+          E2E_TEST_MODE: 'true'
+          REQUIRE_EMAIL_VERIFICATION: 'true'
+          THROTTLE_DEFAULT_LIMIT: '500'
+          THROTTLE_AUTH_LIMIT: '200'
+        run: npm run start:prod &
+
+      - name: Wait for API
+        run: |
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:3000/api/v1/health && exit 0
+            sleep 2
+          done
+          exit 1
+
+      - name: Run verification suite
+        env:
+          API_URL: http://localhost:3000/api/v1
+        run: node scripts/verify-backend.mjs
+
+      - name: Docker build
+        run: docker build -t sgpg-lms-api:ci ./backend
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install & build frontend
+        run: |
+          npm ci
+          npm run build
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: npm audit (backend)
+        working-directory: backend
+        run: npm audit --audit-level=high || true
+
+      - name: npm audit (frontend)
+        run: npm audit --audit-level=high || true

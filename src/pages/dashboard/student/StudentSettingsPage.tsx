@@ -3,6 +3,8 @@ import { useAuth } from '../../../contexts/AuthContext'
 import { useStudentDashboard } from '../../../hooks/useStudentDashboard'
 import { defaultLearningPreferences } from '../../../data/studentData'
 import { PageIntro, Panel } from '../../../components/student/Panel'
+import { UploadZone } from '../../../components/instructor/UploadZone'
+import { uploadAvatar } from '../../../lib/api/media'
 import { Button } from '../../../components/ui/Button'
 
 export function StudentSettingsPage() {
@@ -10,6 +12,7 @@ export function StudentSettingsPage() {
   const { profile } = useStudentDashboard()
   const [prefs, setPrefs] = useState(defaultLearningPreferences)
   const [saved, setSaved] = useState(false)
+  const [avatarUrl, setAvatarUrl] = useState<string | undefined>(undefined)
 
   const handleSave = () => {
     setSaved(true)
@@ -33,8 +36,16 @@ export function StudentSettingsPage() {
       <div className="space-y-6">
         <Panel title="Profile">
           <div className="flex flex-col items-start gap-5 sm:flex-row sm:items-start">
-            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-forest-100 text-xl font-bold text-forest-800">
-              {user?.avatarInitials}
+            <div className="w-full max-w-[200px] shrink-0">
+              <UploadZone
+                label="Profile photo"
+                hint="Square image, min 200×200px"
+                previewUrl={avatarUrl}
+                uploadFn={async (file, onProgress) => {
+                  const asset = await uploadAvatar(file, onProgress)
+                  setAvatarUrl(asset.downloadUrl)
+                }}
+              />
             </div>
             <div className="flex-1 space-y-4">
               <div>

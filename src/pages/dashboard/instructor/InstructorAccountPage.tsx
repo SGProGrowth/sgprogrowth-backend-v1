@@ -3,6 +3,7 @@ import { useInstructorDashboard } from '../../../hooks/useInstructorDashboard'
 import { PageIntro, Panel } from '../../../components/dashboard/PageShell'
 import { FormField, TextAreaField } from '../../../components/instructor/FormField'
 import { UploadZone } from '../../../components/instructor/UploadZone'
+import { uploadAvatar } from '../../../lib/api/media'
 import { SuccessBanner } from '../../../components/instructor/Modal'
 import { Button } from '../../../components/ui/Button'
 
@@ -29,7 +30,7 @@ export function InstructorProfilePage() {
 
       <div className="space-y-6">
         <Panel title="Profile photo">
-          <UploadZone label="Upload profile photo" hint="Square image, min 200×200px" />
+          <UploadZone label="Upload profile photo" hint="Square image, min 200×200px" uploadFn={(file, onProgress) => uploadAvatar(file, onProgress).then(() => undefined)} />
         </Panel>
 
         <Panel title="Professional info">

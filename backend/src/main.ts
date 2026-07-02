@@ -3,16 +3,26 @@ import { ValidationPipe } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
 import helmet from 'helmet'
+import { Logger } from 'nestjs-pino'
 import { AppModule } from './app.module'
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule)
+  const app = await NestFactory.create(AppModule, { bufferLogs: true })
+  app.useLogger(app.get(Logger))
   const config = app.get(ConfigService)
+  const logger = app.get(Logger)
 
-  app.use(helmet())
+  app.use(
+    helmet({
+      contentSecurityPolicy: config.get('NODE_ENV') === 'production' ? undefined : false,
+      crossOriginEmbedderPolicy: false,
+    }),
+  )
   app.enableCors({
     origin: config.get<string>('CORS_ORIGIN')?.split(',') ?? ['http://localhost:5173'],
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id'],
   })
 
   const prefix = config.get<string>('API_PREFIX') ?? 'api/v1'
@@ -35,10 +45,12 @@ async function bootstrap() {
 
   SwaggerModule.setup('docs', app, SwaggerModule.createDocument(app, swaggerConfig))
 
+  app.enableShutdownHooks()
+
   const port = config.get<number>('PORT') ?? 3000
   await app.listen(port)
-  console.log(`API running at http://localhost:${port}/${prefix}`)
-  console.log(`Swagger docs at http://localhost:${port}/docs`)
+  logger.log(`API running at http://localhost:${port}/${prefix}`)
+  logger.log(`Swagger docs at http://localhost:${port}/docs`)
 }
 
 bootstrap()

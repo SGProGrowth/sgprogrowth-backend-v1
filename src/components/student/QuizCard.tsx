@@ -5,9 +5,12 @@ import { CircularProgress } from './ProgressBar'
 interface QuizCardProps {
   quiz: Quiz
   variant?: 'upcoming' | 'completed'
+  onStart?: () => void
+  onResults?: () => void
+  onRetake?: () => void
 }
 
-export function QuizCard({ quiz, variant }: QuizCardProps) {
+export function QuizCard({ quiz, variant, onStart, onResults, onRetake }: QuizCardProps) {
   const isUpcoming = variant === 'upcoming' || quiz.status === 'upcoming'
   const scorePercent = quiz.score !== undefined ? Math.round((quiz.score / quiz.maxScore) * 100) : 0
 
@@ -35,14 +38,14 @@ export function QuizCard({ quiz, variant }: QuizCardProps) {
       <div className="mt-4 flex gap-2 border-t border-stone-100 pt-4">
         {isUpcoming ? (
           <>
-            <Button variant="primary" size="sm">Start quiz</Button>
+            <Button variant="primary" size="sm" onClick={onStart}>Start quiz</Button>
             <Button variant="ghost" size="sm">Review materials</Button>
           </>
         ) : (
           <>
-            <Button variant="secondary" size="sm">View results</Button>
+            <Button variant="secondary" size="sm" onClick={onResults}>View results</Button>
             {quiz.attempts < quiz.maxAttempts && (
-              <Button variant="ghost" size="sm">Retake</Button>
+              <Button variant="ghost" size="sm" onClick={onRetake}>Retake</Button>
             )}
           </>
         )}

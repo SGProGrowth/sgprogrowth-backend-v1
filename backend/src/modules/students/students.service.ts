@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
 import { PrismaService } from '../../prisma/prisma.module'
+import { ProgressService } from '../progress/progress.service'
 
 function initials(name: string): string {
   return name
@@ -27,7 +28,10 @@ function formatDateLabel(date: Date): string {
 
 @Injectable()
 export class StudentsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private progressService: ProgressService,
+  ) {}
 
   async getWorkspace(userId: string) {
     const user = await this.prisma.user.findUnique({
@@ -114,20 +118,28 @@ export class StudentsService {
 
     const quizDtos = quizzes.map((q) => {
       const attempt = q.attempts[0]
-      const completed = attempt?.status === 'submitted' || attempt?.status === 'graded'
+      const completed =
+        attempt?.status === 'submitted' ||
+        attempt?.status === 'graded' ||
+        attempt?.status === 'auto_graded'
+      const inProgress = attempt?.status === 'in_progress'
       return {
         id: q.id,
         title: q.title,
         courseId: q.course?.slug ?? '',
         courseTitle: q.course?.title ?? 'Course quiz',
         date: attempt?.submittedAt ? formatDateLabel(attempt.submittedAt) : formatDateLabel(q.updatedAt),
-        dateLabel: attempt?.submittedAt ? formatDateLabel(attempt.submittedAt) : 'Upcoming',
-        status: completed ? ('completed' as const) : ('upcoming' as const),
+        dateLabel: attempt?.submittedAt
+          ? formatDateLabel(attempt.submittedAt)
+          : inProgress
+            ? 'In progress'
+            : 'Upcoming',
+        status: completed ? ('completed' as const) : inProgress ? ('in_progress' as const) : ('upcoming' as const),
         score: attempt?.score ?? undefined,
         maxScore: attempt?.maxScore ?? 100,
         attempts: attempt?.attemptNumber ?? 0,
         maxAttempts: q.maxAttempts,
-        duration: `${q.durationMinutes} min`,
+        duration: q.unlimitedDuration ? 'Unlimited' : `${q.durationMinutes} min`,
       }
     })
 
@@ -138,7 +150,11 @@ export class StudentsService {
         courseId: e.course.slug,
         issuedDate: formatDateLabel(cert.issuedAt),
         credentialId: cert.credentialId,
-        instructor: e.course.instructor.instructorProfile?.displayName ?? 'Instructor',
+        certificateNumber: cert.certificateNumber,
+        instructor: cert.instructorName,
+        studentName: cert.studentName,
+        status: cert.status,
+        verificationUrl: cert.verificationUrl,
         skills: cert.skills,
       })),
     )
@@ -167,24 +183,62 @@ export class StudentsService {
       })),
     )
 
-    const batches = enrollments
-      .filter((e) => e.batch)
-      .map((e) => ({
-        id: e.batch!.id,
-        name: e.batch!.name,
-        courseId: e.course.slug,
-        courseTitle: e.course.title,
-        instructor: e.course.instructor.instructorProfile?.displayName ?? 'Instructor',
-        coach: e.course.instructor.instructorProfile?.displayName ?? 'Instructor',
-        startDate: formatDateLabel(e.batch!.startDate),
-        endDate: e.batch!.endDate ? formatDateLabel(e.batch!.endDate) : 'TBD',
-        status: e.batch!.status as 'active' | 'upcoming' | 'completed',
-        schedule: e.batch!.schedule ?? '',
-        studentsCount: 0,
-        progress: e.progressPct,
-        nextSession: 'See calendar',
-        batchmates: [] as Array<{ name: string; initials: string; progress: number }>,
-      }))
+    const batchEnrollments = await this.prisma.batchEnrollment.findMany({
+      where: { studentId: userId, status: { not: 'dropped' } },
+      include: {
+        batch: {
+          include: {
+            course: { include: { instructor: { include: { instructorProfile: true } } } },
+            batchEnrollments: {
+              where: { status: 'active' },
+              include: { student: { include: { studentProfile: true } } },
+            },
+          },
+        },
+        enrollment: true,
+      },
+      orderBy: { enrolledAt: 'desc' },
+    })
+
+    const batches = await Promise.all(
+      batchEnrollments.map(async (be) => {
+        const instructorName =
+          be.batch.course.instructor.instructorProfile?.displayName ?? 'Instructor'
+        const batchmates = be.batch.batchEnrollments
+          .filter((m) => m.studentId !== userId)
+          .slice(0, 5)
+          .map((m) => ({
+            name: m.student.studentProfile?.displayName ?? m.student.email,
+            initials: initials(m.student.studentProfile?.displayName ?? m.student.email),
+            progress: 0,
+          }))
+        const studentsCount = be.batch.batchEnrollments.length
+
+        const nextEvent = await this.prisma.batchEvent.findFirst({
+          where: { batchId: be.batchId, startsAt: { gte: new Date() } },
+          orderBy: { startsAt: 'asc' },
+        })
+
+        return {
+          id: be.batch.id,
+          name: be.batch.name,
+          courseId: be.batch.course.slug,
+          courseTitle: be.batch.course.title,
+          instructor: instructorName,
+          coach: instructorName,
+          startDate: formatDateLabel(be.batch.startDate),
+          endDate: be.batch.endDate ? formatDateLabel(be.batch.endDate) : 'TBD',
+          status: be.batch.status as 'active' | 'upcoming' | 'completed',
+          schedule: be.batch.schedule ?? '',
+          studentsCount,
+          progress: be.enrollment?.progressPct ?? 0,
+          nextSession: nextEvent
+            ? `${nextEvent.title} · ${formatDateLabel(nextEvent.startsAt)}`
+            : be.batch.schedule ?? 'See calendar',
+          batchmates,
+        }
+      }),
+    )
 
     const coachingSessions = await this.prisma.coachingSession.findMany({
       where: { enrollment: { studentId: userId } },
@@ -250,21 +304,24 @@ export class StudentsService {
 
     const activeCourses = courses.filter((c) => c.status === 'active')
     const completedCourses = courses.filter((c) => c.status === 'completed')
-    const overallProgress =
-      activeCourses.length > 0
+
+    const progressDash = await this.progressService.getStudentDashboard(userId).catch(() => null)
+
+    const overallProgress = progressDash?.overallProgress ??
+      (activeCourses.length > 0
         ? Math.round(activeCourses.reduce((s, c) => s + c.progress, 0) / activeCourses.length)
         : completedCourses.length > 0
           ? 100
-          : 0
+          : 0)
 
     const summary = {
-      totalHours: Math.round(courses.reduce((s, c) => s + c.hoursSpent, 0)),
-      weeklyHours: activeCourses.length > 0 ? 8 : 0,
+      totalHours: progressDash?.totalHours ?? Math.round(courses.reduce((s, c) => s + c.hoursSpent, 0)),
+      weeklyHours: progressDash?.weeklyHours ?? (activeCourses.length > 0 ? 8 : 0),
       weeklyGoal: (profile.preferences as { weeklyGoalHours?: number })?.weeklyGoalHours ?? 10,
       activeCourses: activeCourses.length,
       completedCourses: completedCourses.length,
-      streak: activeCourses.length > 1 ? 12 : activeCourses.length > 0 ? 5 : 0,
-      longestStreak: activeCourses.length > 1 ? 18 : activeCourses.length > 0 ? 8 : 0,
+      streak: progressDash?.streak ?? (activeCourses.length > 0 ? 5 : 0),
+      longestStreak: progressDash?.longestStreak ?? (activeCourses.length > 0 ? 8 : 0),
       overallProgress,
       certificationsInProgress: activeCourses.filter(
         (c) => c.category.includes('Cloud') || c.category.includes('Data'),
@@ -272,8 +329,9 @@ export class StudentsService {
       coachingSessionsThisMonth: sessionDtos.filter((s) => s.status === 'upcoming').length,
     }
 
-    const weeklyLearning =
-      courses.length > 0
+    const weeklyLearning = progressDash?.weeklyActivity?.length
+      ? progressDash.weeklyActivity
+      : courses.length > 0
         ? [
             { day: 'Mon', hours: 1.5, active: true },
             { day: 'Tue', hours: 2, active: true },
@@ -285,9 +343,21 @@ export class StudentsService {
           ]
         : []
 
-    const continueLearning = [...courses]
-      .filter((c) => c.status === 'active')
-      .sort((a, b) => b.progress - a.progress)[0]
+    const continueLearningItem = progressDash?.continueLearning?.[0]
+    const continueLearning = continueLearningItem
+      ? courses.find((c) => c.id === continueLearningItem.courseId) ?? courses
+          .filter((c) => c.status === 'active')
+          .sort((a, b) => b.progress - a.progress)[0]
+      : [...courses]
+          .filter((c) => c.status === 'active')
+          .sort((a, b) => b.progress - a.progress)[0]
+
+    const continueLearningWithLesson = continueLearning
+      ? {
+          ...continueLearning,
+          nextLesson: continueLearningItem?.lessonTitle ?? continueLearning.nextLesson,
+        }
+      : undefined
 
     const upcomingActivities = assignmentDtos
       .filter((a) => a.status === 'pending' || a.status === 'overdue')
@@ -333,7 +403,7 @@ export class StudentsService {
       messages,
       weeklyLearning,
       summary,
-      continueLearning,
+      continueLearning: continueLearningWithLesson,
       unreadNotifications,
       unreadMessages,
       pendingAssignments,

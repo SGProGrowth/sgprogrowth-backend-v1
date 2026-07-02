@@ -168,6 +168,66 @@ export class TemplateService {
     )
   }
 
+  assignmentPublishedEmail(
+    name: string,
+    assignmentTitle: string,
+    courseTitle: string,
+    dueLabel: string,
+    actionUrl: string,
+  ): string {
+    return this.notificationEmail(
+      'Assignment published',
+      `Hi ${name}, a new assignment "${assignmentTitle}" is available in ${courseTitle}. Due ${dueLabel}.`,
+      actionUrl,
+      'View assignment',
+    )
+  }
+
+  assignmentSubmittedEmail(
+    instructorName: string,
+    studentName: string,
+    assignmentTitle: string,
+    courseTitle: string,
+    actionUrl: string,
+  ): string {
+    return this.notificationEmail(
+      'New submission',
+      `Hi ${instructorName}, ${studentName} submitted "${assignmentTitle}" in ${courseTitle}.`,
+      actionUrl,
+      'Review submission',
+    )
+  }
+
+  assignmentGradedEmail(
+    name: string,
+    assignmentTitle: string,
+    courseTitle: string,
+    score: number,
+    maxScore: number,
+    actionUrl: string,
+  ): string {
+    return this.notificationEmail(
+      'Assignment graded',
+      `Hi ${name}, your submission for "${assignmentTitle}" in ${courseTitle} received ${score}/${maxScore}.`,
+      actionUrl,
+      'View feedback',
+    )
+  }
+
+  assignmentReturnedEmail(
+    name: string,
+    assignmentTitle: string,
+    courseTitle: string,
+    actionUrl: string,
+  ): string {
+    return this.notificationEmail(
+      'Revision requested',
+      `Hi ${name}, your instructor returned "${assignmentTitle}" in ${courseTitle} for revision.`,
+      actionUrl,
+      'Resubmit assignment',
+    )
+  }
+
   quizNotificationEmail(name: string, quizTitle: string, courseTitle: string, actionUrl: string): string {
     return this.notificationEmail(
       'Quiz available',

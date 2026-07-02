@@ -64,8 +64,8 @@ function extractTokenFromLogs(email, kind) {
     const content = readFileSync(logPath, 'utf8')
     const needle =
       kind === 'verify'
-        ? /Verify your email: \S+\/verify-email\?token=([A-Za-z0-9_-]+)/
-        : /Reset your password: \S+\/reset-password\?token=([A-Za-z0-9_-]+)/
+        ? /verify-email\?token=([A-Za-z0-9_-]+)/
+        : /reset-password\?token=([A-Za-z0-9_-]+)/
 
     const matches = [...content.matchAll(new RegExp(needle.source, 'g'))]
     if (matches.length) {
@@ -73,6 +73,18 @@ function extractTokenFromLogs(email, kind) {
     }
   }
   return null
+}
+
+async function fetchTestToken(email, kind) {
+  try {
+    const { status, body } = await req(
+      `/auth/test/token?email=${encodeURIComponent(email)}&type=${kind}`,
+    )
+    if (status === 200 && body.token) return body.token
+  } catch {
+    /* fall through to log extraction */
+  }
+  return extractTokenFromLogs(email, kind)
 }
 
 async function login(email, role) {
@@ -234,7 +246,8 @@ async function main() {
   }
 
   await new Promise((r) => setTimeout(r, 300))
-  const verifyToken = extractTokenFromLogs(registerEmail, 'verify')
+  await new Promise((r) => setTimeout(r, 300))
+  const verifyToken = await fetchTestToken(registerEmail, 'verify')
   if (verifyToken) {
     try {
       const { status, body } = await req(`/auth/verify-email?token=${encodeURIComponent(verifyToken)}`)
@@ -353,7 +366,8 @@ async function main() {
   }
 
   await new Promise((r) => setTimeout(r, 300))
-  const resetToken = extractTokenFromLogs('ankit.verma@example.com', 'reset')
+  await new Promise((r) => setTimeout(r, 300))
+  const resetToken = await fetchTestToken('ankit.verma@example.com', 'reset')
   if (resetToken) {
     try {
       const { status, body } = await req('/auth/reset-password', {
@@ -371,7 +385,8 @@ async function main() {
         body: JSON.stringify({ email: 'ankit.verma@example.com' }),
       })
       await new Promise((r) => setTimeout(r, 300))
-      const restoreToken = extractTokenFromLogs('ankit.verma@example.com', 'reset')
+      await new Promise((r) => setTimeout(r, 300))
+      const restoreToken = await fetchTestToken('ankit.verma@example.com', 'reset')
       if (restoreToken) {
         await req('/auth/reset-password', {
           method: 'POST',
@@ -694,6 +709,1040 @@ async function main() {
     else fail('Unauthenticated create course blocked', `expected 401 got ${status}`)
   } catch (e) {
     fail('Unauthenticated create course blocked', e.message)
+  }
+
+  // ── Assignments (Phase 3.1) ─────────────────────────────────────
+  let instructorToken2 = ''
+  let studentToken2 = ''
+  let studentUserId = ''
+  let assignmentId = ''
+
+  try {
+    const body = await login('cloud.lead@example.com', 'instructor')
+    instructorToken2 = body.accessToken
+  } catch (e) {
+    fail('Assignment setup: instructor login', e.message)
+  }
+
+  try {
+    const body = await login('neha.sharma@example.com', 'student')
+    studentToken2 = body.accessToken
+    studentUserId = body.user?.id ?? ''
+  } catch (e) {
+    fail('Assignment setup: student login', e.message)
+  }
+
+  if (instructorToken2) {
+    try {
+      const { status, body } = await req('/assignments/mine', {
+        headers: authHeaders(instructorToken2),
+      })
+      if (status === 200 && Array.isArray(body.data)) pass('Instructor assignments list', `${body.data.length} items`)
+      else fail('Instructor assignments list', `status=${status}`)
+    } catch (e) {
+      fail('Instructor assignments list', e.message)
+    }
+
+    try {
+      const { status, body } = await req('/assignments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders(instructorToken2) },
+        body: JSON.stringify({
+          title: `E2E Assignment ${Date.now()}`,
+          courseSlug: 'aws-solutions-architect',
+          type: 'project',
+          instructions: '<p>Submit your architecture document.</p>',
+          dueAt: new Date(Date.now() + 7 * 86400000).toISOString(),
+          maxScore: 100,
+          allowLate: true,
+          allowResubmission: true,
+          allowedFileTypes: ['pdf', 'txt'],
+        }),
+      })
+      if ((status === 201 || status === 200) && body.id) {
+        assignmentId = body.id
+        pass('Create assignment (draft)', assignmentId)
+      } else fail('Create assignment', `status=${status}`)
+    } catch (e) {
+      fail('Create assignment', e.message)
+    }
+
+    if (assignmentId) {
+      try {
+        const { status, body } = await req(`/assignments/${assignmentId}/publish`, {
+          method: 'POST',
+          headers: authHeaders(instructorToken2),
+        })
+        if (status === 200 && body.status === 'published') pass('Publish assignment')
+        else fail('Publish assignment', `status=${status}`)
+      } catch (e) {
+        fail('Publish assignment', e.message)
+      }
+
+      try {
+        const { status } = await req(`/assignments/${assignmentId}/unpublish`, {
+          method: 'POST',
+          headers: authHeaders(instructorToken2),
+        })
+        if (status === 200) pass('Unpublish assignment')
+        else fail('Unpublish assignment', `status=${status}`)
+      } catch (e) {
+        fail('Unpublish assignment', e.message)
+      }
+
+      try {
+        const { status } = await req(`/assignments/${assignmentId}/publish`, {
+          method: 'POST',
+          headers: authHeaders(instructorToken2),
+        })
+        if (status === 200) pass('Re-publish assignment')
+        else fail('Re-publish assignment', `status=${status}`)
+      } catch (e) {
+        fail('Re-publish assignment', e.message)
+      }
+    }
+  }
+
+  if (studentToken2) {
+    try {
+      const { status, body } = await req('/assignments/me', {
+        headers: authHeaders(studentToken2),
+      })
+      if (status === 200 && Array.isArray(body.data)) pass('Student assignments list', `${body.data.length} items`)
+      else fail('Student assignments list', `status=${status}`)
+    } catch (e) {
+      fail('Student assignments list', e.message)
+    }
+
+    if (assignmentId) {
+      try {
+        const form = new FormData()
+        form.append('body', 'E2E test submission content')
+        const url = `${API}/assignments/${assignmentId}/submissions`
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { Accept: 'application/json', Authorization: `Bearer ${studentToken2}` },
+          body: form,
+        })
+        const body = await res.json().catch(() => ({}))
+        if (res.status === 201 || res.status === 200) pass('Student submit assignment (text)')
+        else fail('Student submit assignment', `status=${res.status} ${JSON.stringify(body.message ?? body)}`)
+      } catch (e) {
+        fail('Student submit assignment', e.message)
+      }
+
+      try {
+        const { status, body } = await req(`/assignments/${assignmentId}`, {
+          headers: authHeaders(studentToken2),
+        })
+        if (status === 200 && body.title) pass('Student assignment detail')
+        else fail('Student assignment detail', `status=${status}`)
+      } catch (e) {
+        fail('Student assignment detail', e.message)
+      }
+    }
+
+    try {
+      const { status } = await req('/assignments/mine', {
+        headers: authHeaders(studentToken2),
+      })
+      if (status === 403) pass('Role guard (student → instructor assignments blocked)')
+      else fail('Role guard assignments', `expected 403 got ${status}`)
+    } catch (e) {
+      fail('Role guard assignments', e.message)
+    }
+  }
+
+  if (instructorToken2 && assignmentId) {
+    try {
+      const { status, body } = await req(`/assignments/${assignmentId}/submissions`, {
+        headers: authHeaders(instructorToken2),
+      })
+      if (status === 200 && body.data?.length >= 1) {
+        pass('Instructor list submissions', `${body.data.length} submission(s)`)
+        const subId = body.data[0].id
+        const grade = await req(`/assignments/${assignmentId}/submissions/${subId}/grade`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...authHeaders(instructorToken2) },
+          body: JSON.stringify({ score: 88, feedback: 'Well done' }),
+        })
+        if (grade.status === 200) pass('Grade submission', '88/100')
+        else fail('Grade submission', `status=${grade.status}`)
+      } else fail('Instructor list submissions', `status=${status}`)
+    } catch (e) {
+      fail('Instructor grading flow', e.message)
+    }
+  }
+
+  // ── Question Bank (Phase 3.2) ─────────────────────────────────────
+  let questionId = ''
+  if (instructorToken2) {
+    try {
+      const { status, body } = await req('/questions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders(instructorToken2) },
+        body: JSON.stringify({
+          questionText: 'What is the capital of France?',
+          type: 'short_answer',
+          difficulty: 'easy',
+          marks: 2,
+          category: 'Geography',
+          tags: ['capitals', 'europe'],
+        }),
+      })
+      if ((status === 201 || status === 200) && body.id) {
+        questionId = body.id
+        pass('Create question', questionId)
+      } else fail('Create question', `status=${status}`)
+    } catch (e) {
+      fail('Create question', e.message)
+    }
+
+    if (questionId) {
+      try {
+        const { status, body } = await req(`/questions?q=France`, {
+          headers: authHeaders(instructorToken2),
+        })
+        if (status === 200 && body.data?.some((q) => q.id === questionId)) pass('Search questions')
+        else fail('Search questions', `status=${status}`)
+      } catch (e) {
+        fail('Search questions', e.message)
+      }
+
+      try {
+        const { status } = await req(`/questions/${questionId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', ...authHeaders(instructorToken2) },
+          body: JSON.stringify({ marks: 3, explanation: 'Paris is the capital.' }),
+        })
+        if (status === 200) pass('Update question (versioning)')
+        else fail('Update question', `status=${status}`)
+      } catch (e) {
+        fail('Update question', e.message)
+      }
+
+      try {
+        const { status, body } = await req(`/questions/${questionId}/versions`, {
+          headers: authHeaders(instructorToken2),
+        })
+        if (status === 200 && Array.isArray(body) && body.length >= 1) pass('Question version history')
+        else fail('Question version history', `status=${status}`)
+      } catch (e) {
+        fail('Question version history', e.message)
+      }
+
+      try {
+        const { status, body } = await req(`/questions/${questionId}/duplicate`, {
+          method: 'POST',
+          headers: authHeaders(instructorToken2),
+        })
+        if (status === 201 || status === 200) pass('Duplicate question')
+        else fail('Duplicate question', `status=${status}`)
+      } catch (e) {
+        fail('Duplicate question', e.message)
+      }
+
+      try {
+        const { status } = await req(`/questions/${questionId}/archive`, {
+          method: 'POST',
+          headers: authHeaders(instructorToken2),
+        })
+        if (status === 200 || status === 201) pass('Archive question')
+        else fail('Archive question', `status=${status}`)
+      } catch (e) {
+        fail('Archive question', e.message)
+      }
+
+      try {
+        const { status } = await req(`/questions/${questionId}/restore`, {
+          method: 'POST',
+          headers: authHeaders(instructorToken2),
+        })
+        if (status === 200 || status === 201) pass('Restore question')
+        else fail('Restore question', `status=${status}`)
+      } catch (e) {
+        fail('Restore question', e.message)
+      }
+    }
+
+    try {
+      const { status } = await req('/questions/export/csv', {
+        headers: authHeaders(instructorToken2),
+      })
+      if (status === 200) pass('Export questions CSV')
+      else fail('Export questions CSV', `status=${status}`)
+    } catch (e) {
+      fail('Export questions CSV', e.message)
+    }
+
+    try {
+      const csv = 'question_text,type,difficulty,marks,category,tags\n"What is 2+2?",short_answer,easy,1,Math,arithmetic'
+      const form = new FormData()
+      form.append('file', new Blob([csv], { type: 'text/csv' }), 'questions.csv')
+      const res = await fetch(`${API}/questions/import/csv`, {
+        method: 'POST',
+        headers: { Accept: 'application/json', Authorization: `Bearer ${instructorToken2}` },
+        body: form,
+      })
+      const body = await res.json().catch(() => ({}))
+      if (res.status === 200 || res.status === 201) pass('Import questions CSV', `${body.imported ?? 0} imported`)
+      else fail('Import questions CSV', `status=${res.status}`)
+    } catch (e) {
+      fail('Import questions CSV', e.message)
+    }
+
+    try {
+      const { status } = await req('/questions', { headers: authHeaders(studentToken2) })
+      if (status === 403) pass('Role guard (student → questions blocked)')
+      else fail('Role guard questions', `expected 403 got ${status}`)
+    } catch (e) {
+      fail('Role guard questions', e.message)
+    }
+  }
+
+  // ── Quiz Engine (Phase 3.3) ───────────────────────────────────────
+  let quizId = ''
+  let quizAttemptId = ''
+  if (instructorToken2 && studentToken2) {
+    try {
+      const { status, body } = await req('/quizzes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders(instructorToken2) },
+        body: JSON.stringify({
+          title: `E2E Quiz ${Date.now()}`,
+          courseSlug: 'aws-solutions-architect',
+          durationMinutes: 15,
+          maxAttempts: 2,
+          passScore: 70,
+          showScoreImmediately: true,
+        }),
+      })
+      if ((status === 201 || status === 200) && body.id) {
+        quizId = body.id
+        pass('Create quiz', quizId)
+      } else fail('Create quiz', `status=${status}`)
+    } catch (e) {
+      fail('Create quiz', e.message)
+    }
+
+    if (quizId && questionId) {
+      try {
+        const { status } = await req(`/quizzes/${quizId}/questions`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', ...authHeaders(instructorToken2) },
+          body: JSON.stringify({ questions: [{ questionId, sortOrder: 1 }] }),
+        })
+        if (status === 200) pass('Set quiz questions')
+        else fail('Set quiz questions', `status=${status}`)
+      } catch (e) {
+        fail('Set quiz questions', e.message)
+      }
+
+      try {
+        const { status } = await req(`/quizzes/${quizId}/publish`, {
+          method: 'POST',
+          headers: authHeaders(instructorToken2),
+        })
+        if (status === 200 || status === 201) pass('Publish quiz')
+        else fail('Publish quiz', `status=${status}`)
+      } catch (e) {
+        fail('Publish quiz', e.message)
+      }
+    }
+
+    if (quizId) {
+      try {
+        const { status, body } = await req('/quizzes/me', { headers: authHeaders(studentToken2) })
+        if (status === 200 && Array.isArray(body) && body.some((q) => q.id === quizId)) pass('Student quiz list')
+        else fail('Student quiz list', `status=${status}`)
+      } catch (e) {
+        fail('Student quiz list', e.message)
+      }
+
+      try {
+        const { status, body } = await req(`/quizzes/${quizId}/attempts/start`, {
+          method: 'POST',
+          headers: authHeaders(studentToken2),
+        })
+        if ((status === 200 || status === 201) && body.attemptId) {
+          quizAttemptId = body.attemptId
+          pass('Start quiz attempt', quizAttemptId)
+        } else fail('Start quiz attempt', `status=${status}`)
+      } catch (e) {
+        fail('Start quiz attempt', e.message)
+      }
+
+      if (quizAttemptId) {
+        const qqId = (await req(`/quizzes/attempts/${quizAttemptId}/player`, { headers: authHeaders(studentToken2) })).body?.questions?.[0]?.quizQuestionId
+        if (qqId) {
+          try {
+            const { status } = await req(`/quizzes/attempts/${quizAttemptId}/answers`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json', ...authHeaders(studentToken2) },
+              body: JSON.stringify({ answers: [{ quizQuestionId: qqId, response: { value: 'Paris' } }] }),
+            })
+            if (status === 200) pass('Save quiz answers (auto-save)')
+            else fail('Save quiz answers', `status=${status}`)
+          } catch (e) {
+            fail('Save quiz answers', e.message)
+          }
+        }
+
+        try {
+          const { status, body } = await req(`/quizzes/attempts/${quizAttemptId}/submit`, {
+            method: 'POST',
+            headers: authHeaders(studentToken2),
+          })
+          if (status === 200 || status === 201) pass('Submit quiz', `score=${body.score ?? 'pending'}`)
+          else fail('Submit quiz', `status=${status}`)
+        } catch (e) {
+          fail('Submit quiz', e.message)
+        }
+
+        try {
+          const { status, body } = await req(`/quizzes/attempts/${quizAttemptId}/result`, {
+            headers: authHeaders(studentToken2),
+          })
+          if (status === 200 && body.attemptId) pass('Quiz result')
+          else fail('Quiz result', `status=${status}`)
+        } catch (e) {
+          fail('Quiz result', e.message)
+        }
+      }
+
+      try {
+        const { status, body } = await req(`/quizzes/${quizId}/analytics`, {
+          headers: authHeaders(instructorToken2),
+        })
+        if (status === 200 && typeof body.attemptCount === 'number') pass('Quiz analytics')
+        else fail('Quiz analytics', `status=${status}`)
+      } catch (e) {
+        fail('Quiz analytics', e.message)
+      }
+
+      try {
+        const { status } = await req('/quizzes/mine', { headers: authHeaders(studentToken2) })
+        if (status === 403) pass('Role guard (student → instructor quizzes blocked)')
+        else fail('Role guard quizzes', `expected 403 got ${status}`)
+      } catch (e) {
+        fail('Role guard quizzes', e.message)
+      }
+    }
+  }
+
+  // ── Learning Progress (Phase 3.4) ─────────────────────────────────
+  let progressLessonId = ''
+  if (studentToken2) {
+    try {
+      const { status, body } = await req('/progress/me', { headers: authHeaders(studentToken2) })
+      if (status === 200 && typeof body.overallProgress === 'number') {
+        pass('Student progress dashboard', `${body.overallProgress}% overall`)
+      } else fail('Student progress dashboard', `status=${status}`)
+    } catch (e) {
+      fail('Student progress dashboard', e.message)
+    }
+
+    try {
+      const { status, body } = await req('/progress/me/continue', { headers: authHeaders(studentToken2) })
+      if (status === 200 && Array.isArray(body.items)) pass('Continue learning API')
+      else fail('Continue learning API', `status=${status}`)
+    } catch (e) {
+      fail('Continue learning API', e.message)
+    }
+
+    try {
+      const { status, body } = await req('/progress/courses/aws-solutions-architect', {
+        headers: authHeaders(studentToken2),
+      })
+      if (status === 200 && Array.isArray(body.modules)) {
+        progressLessonId = body.modules?.[0]?.lessons?.[0]?.id ?? ''
+        pass('Course progress detail', `${body.modules.length} modules`)
+      } else fail('Course progress detail', `status=${status}`)
+    } catch (e) {
+      fail('Course progress detail', e.message)
+    }
+
+    if (progressLessonId) {
+      try {
+        const { status } = await req(
+          `/progress/lessons/${progressLessonId}/courses/aws-solutions-architect`,
+          {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', ...authHeaders(studentToken2) },
+            body: JSON.stringify({ videoProgressPct: 50, timeSpentSeconds: 600, recordAccess: true }),
+          },
+        )
+        if (status === 200) pass('Update lesson progress (video/time)')
+        else fail('Update lesson progress', `status=${status}`)
+      } catch (e) {
+        fail('Update lesson progress', e.message)
+      }
+
+      try {
+        const { status, body } = await req(
+          `/progress/lessons/${progressLessonId}/courses/aws-solutions-architect/complete`,
+          { method: 'POST', headers: authHeaders(studentToken2) },
+        )
+        if (status === 200 || status === 201) {
+          const lessonStatus = body.modules?.[0]?.lessons?.find((l) => l.id === progressLessonId)?.status
+          if (lessonStatus === 'completed') pass('Mark lesson complete', progressLessonId)
+          else pass('Mark lesson complete', 'recalculated')
+        } else fail('Mark lesson complete', `status=${status}`)
+      } catch (e) {
+        fail('Mark lesson complete', e.message)
+      }
+
+      try {
+        const { status } = await req(
+          `/progress/lessons/${progressLessonId}/courses/aws-solutions-architect/incomplete`,
+          { method: 'POST', headers: authHeaders(studentToken2) },
+        )
+        if (status === 200 || status === 201) pass('Mark lesson incomplete')
+        else fail('Mark lesson incomplete', `status=${status}`)
+      } catch (e) {
+        fail('Mark lesson incomplete', e.message)
+      }
+    }
+
+    try {
+      const { status } = await req('/progress/instructor/courses/aws-solutions-architect/analytics', {
+        headers: authHeaders(studentToken2),
+      })
+      if (status === 403) pass('Role guard (student → instructor progress blocked)')
+      else fail('Role guard progress', `expected 403 got ${status}`)
+    } catch (e) {
+      fail('Role guard progress', e.message)
+    }
+  }
+
+  if (instructorToken2) {
+    try {
+      const { status, body } = await req('/progress/instructor/courses/aws-solutions-architect/analytics', {
+        headers: authHeaders(instructorToken2),
+      })
+      if (status === 200 && typeof body.averageProgress === 'number') {
+        pass('Instructor course progress analytics', `${body.averageProgress}% avg`)
+      } else fail('Instructor course progress analytics', `status=${status}`)
+    } catch (e) {
+      fail('Instructor course progress analytics', e.message)
+    }
+  }
+
+  // ── Certificates (Phase 3.5) ──────────────────────────────────────
+  let certificateId = ''
+  let credentialId = ''
+
+  if (instructorToken2 && studentUserId) {
+    try {
+      const { status, body } = await req('/certificates/issue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders(instructorToken2) },
+        body: JSON.stringify({
+          courseSlug: 'aws-solutions-architect',
+          studentId: studentUserId,
+          bypassRules: true,
+        }),
+      })
+      if ((status === 200 || status === 201) && body.id) {
+        certificateId = body.id
+        credentialId = body.credentialId
+        pass('Manual certificate issue', credentialId)
+      } else fail('Manual certificate issue', `status=${status}`)
+    } catch (e) {
+      fail('Manual certificate issue', e.message)
+    }
+  }
+
+  if (studentToken2 && certificateId) {
+    try {
+      const { status, body } = await req('/certificates/me', { headers: authHeaders(studentToken2) })
+      if (status === 200 && Array.isArray(body) && body.some((c) => c.id === certificateId)) {
+        pass('Student certificate list')
+      } else fail('Student certificate list', `status=${status}`)
+    } catch (e) {
+      fail('Student certificate list', e.message)
+    }
+
+    try {
+      const { status, body } = await req(`/certificates/${certificateId}`, {
+        headers: authHeaders(studentToken2),
+      })
+      if (status === 200 && body.credentialId) pass('Certificate detail')
+      else fail('Certificate detail', `status=${status}`)
+    } catch (e) {
+      fail('Certificate detail', e.message)
+    }
+
+    try {
+      const res = await fetch(`${API}/certificates/${certificateId}/pdf`, {
+        headers: { Authorization: `Bearer ${studentToken2}` },
+      })
+      if (res.status === 200 && res.headers.get('content-type')?.includes('pdf')) {
+        pass('Certificate PDF download')
+      } else fail('Certificate PDF download', `status=${res.status}`)
+    } catch (e) {
+      fail('Certificate PDF download', e.message)
+    }
+
+    try {
+      const { status } = await req('/certificates/mine', { headers: authHeaders(studentToken2) })
+      if (status === 403) pass('Role guard (student → instructor certificates blocked)')
+      else fail('Role guard certificates', `expected 403 got ${status}`)
+    } catch (e) {
+      fail('Role guard certificates', e.message)
+    }
+  }
+
+  if (credentialId) {
+    try {
+      const { status, body } = await req(`/certificates/verify/${credentialId}`)
+      if (status === 200 && body.valid === true) pass('Public certificate verification', credentialId)
+      else fail('Public certificate verification', `status=${status} valid=${body.valid}`)
+    } catch (e) {
+      fail('Public certificate verification', e.message)
+    }
+
+    try {
+      const { status, body } = await req('/certificates/verify/SGPG-INVALID00000000')
+      if (status === 200 && body.valid === false) pass('Invalid credential rejected')
+      else fail('Invalid credential rejected', `status=${status}`)
+    } catch (e) {
+      fail('Invalid credential rejected', e.message)
+    }
+  }
+
+  if (instructorToken2 && certificateId) {
+    try {
+      const { status } = await req(`/certificates/${certificateId}/revoke`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders(instructorToken2) },
+        body: JSON.stringify({ reason: 'E2E test revocation' }),
+      })
+      if (status === 200 || status === 201) pass('Revoke certificate')
+      else fail('Revoke certificate', `status=${status}`)
+    } catch (e) {
+      fail('Revoke certificate', e.message)
+    }
+
+    if (credentialId) {
+      try {
+        const { status, body } = await req(`/certificates/verify/${credentialId}`)
+        if (status === 200 && body.status === 'revoked') pass('Revoked certificate verification')
+        else fail('Revoked certificate verification', `status=${body.status}`)
+      } catch (e) {
+        fail('Revoked certificate verification', e.message)
+      }
+    }
+
+    try {
+      const { status, body } = await req(`/certificates/${certificateId}/reissue`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders(instructorToken2) },
+        body: JSON.stringify({}),
+      })
+      if ((status === 200 || status === 201) && body.id) {
+        credentialId = body.credentialId
+        pass('Reissue certificate', body.credentialId)
+      } else fail('Reissue certificate', `status=${status}`)
+    } catch (e) {
+      fail('Reissue certificate', e.message)
+    }
+
+    try {
+      const { status, body } = await req('/certificates/mine', {
+        headers: authHeaders(instructorToken2),
+      })
+      if (status === 200 && Array.isArray(body)) pass('Instructor certificate list', `${body.length} items`)
+      else fail('Instructor certificate list', `status=${status}`)
+    } catch (e) {
+      fail('Instructor certificate list', e.message)
+    }
+
+    try {
+      const { status, body } = await req('/certificates/templates', {
+        headers: authHeaders(instructorToken2),
+      })
+      if (status === 200 && Array.isArray(body) && body.length > 0) pass('Certificate templates')
+      else fail('Certificate templates', `status=${status}`)
+    } catch (e) {
+      fail('Certificate templates', e.message)
+    }
+  }
+
+  // ── Phase 3.6: Batch Management & Bulk Import ───────────────────
+  let batchId = ''
+  let importJobId = ''
+
+  if (instructorToken2) {
+    try {
+      const { status, body } = await req('/batches/mine', { headers: authHeaders(instructorToken2) })
+      if (status === 200 && Array.isArray(body)) {
+        pass('List instructor batches', `${body.length} batches`)
+        batchId = body[0]?.id ?? ''
+      } else fail('List instructor batches', `status=${status}`)
+    } catch (e) {
+      fail('List instructor batches', e.message)
+    }
+
+    try {
+      const { status, body } = await req('/batches', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders(instructorToken2) },
+        body: JSON.stringify({
+          name: 'E2E Test Batch',
+          courseSlug: 'aws-solutions-architect',
+          startDate: '2026-09-01',
+          endDate: '2026-11-30',
+          schedule: 'Mon & Wed · 7:00 PM IST',
+          maxCapacity: 25,
+          publish: true,
+        }),
+      })
+      if ((status === 200 || status === 201) && body.id) {
+        batchId = body.id
+        pass('Create batch', body.batchCode)
+      } else fail('Create batch', `status=${status}`)
+    } catch (e) {
+      fail('Create batch', e.message)
+    }
+  }
+
+  if (instructorToken2 && batchId) {
+    try {
+      const { status, body } = await req(`/batches/${batchId}`, { headers: authHeaders(instructorToken2) })
+      if (status === 200 && body.id === batchId) pass('Get batch detail')
+      else fail('Get batch detail', `status=${status}`)
+    } catch (e) {
+      fail('Get batch detail', e.message)
+    }
+
+    try {
+      const { status, body } = await req(`/batches/${batchId}/dashboard`, {
+        headers: authHeaders(instructorToken2),
+      })
+      if (status === 200 && typeof body.studentCount === 'number') pass('Batch dashboard')
+      else fail('Batch dashboard', `status=${status}`)
+    } catch (e) {
+      fail('Batch dashboard', e.message)
+    }
+
+    try {
+      const { status, body } = await req(`/batches/${batchId}/calendar`, {
+        headers: authHeaders(instructorToken2),
+      })
+      if (status === 200 && Array.isArray(body.events)) pass('Batch calendar')
+      else fail('Batch calendar', `status=${status}`)
+    } catch (e) {
+      fail('Batch calendar', e.message)
+    }
+
+    try {
+      const { status, body } = await req(`/batches/${batchId}/students`, {
+        headers: authHeaders(instructorToken2),
+      })
+      if (status === 200 && Array.isArray(body)) pass('List batch students', `${body.length} students`)
+      else fail('List batch students', `status=${status}`)
+    } catch (e) {
+      fail('List batch students', e.message)
+    }
+
+    try {
+      const { status, body } = await req(`/batches/${batchId}/students`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders(instructorToken2) },
+        body: JSON.stringify({
+          email: `batch.import.${Date.now()}@example.com`,
+          name: 'Batch Import Test',
+          createAccount: true,
+        }),
+      })
+      if ((status === 200 || status === 201) && body.id) pass('Add student to batch')
+      else fail('Add student to batch', `status=${status}`)
+    } catch (e) {
+      fail('Add student to batch', e.message)
+    }
+
+    try {
+      const { status } = await req(`/batches/${batchId}/publish`, {
+        method: 'POST',
+        headers: authHeaders(instructorToken2),
+      })
+      if (status === 200 || status === 201) pass('Publish batch')
+      else fail('Publish batch', `status=${status}`)
+    } catch (e) {
+      fail('Publish batch', e.message)
+    }
+
+    try {
+      const res = await fetch(`${API}/batches/import/template`, {
+        headers: { Authorization: `Bearer ${instructorToken2}` },
+      })
+      if (res.ok && res.headers.get('content-type')?.includes('text/csv')) pass('Download import template')
+      else fail('Download import template', `status=${res.status}`)
+    } catch (e) {
+      fail('Download import template', e.message)
+    }
+
+    try {
+      const csv = [
+        'full_name,email,course_slug,batch_name,phone,notes',
+        `Import User,import.user.${Date.now()}@example.com,aws-solutions-architect,E2E Test Batch,,`,
+      ].join('\n')
+      const form = new FormData()
+      form.append('file', new Blob([csv], { type: 'text/csv' }), 'import-test.csv')
+      form.append('defaultBatchId', batchId)
+      const res = await fetch(`${API}/batches/import/preview`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${instructorToken2}` },
+        body: form,
+      })
+      const body = await res.json().catch(() => ({}))
+      if (res.ok && body.jobId && Array.isArray(body.rows)) {
+        importJobId = body.jobId
+        pass('Import preview', `${body.validCount} valid rows`)
+      } else fail('Import preview', `status=${res.status}`)
+    } catch (e) {
+      fail('Import preview', e.message)
+    }
+  }
+
+  if (instructorToken2 && importJobId) {
+    try {
+      const { status, body } = await req('/batches/import/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders(instructorToken2) },
+        body: JSON.stringify({ jobId: importJobId, partialImport: true }),
+      })
+      if ((status === 200 || status === 201) && typeof body.successCount === 'number') {
+        pass('Execute bulk import', `${body.successCount} imported`)
+      } else fail('Execute bulk import', `status=${status}`)
+    } catch (e) {
+      fail('Execute bulk import', e.message)
+    }
+  }
+
+  if (studentToken2) {
+    try {
+      const { status, body } = await req('/batches/me', { headers: authHeaders(studentToken2) })
+      if (status === 200 && Array.isArray(body)) pass('Student batch list', `${body.length} batches`)
+      else fail('Student batch list', `status=${status}`)
+    } catch (e) {
+      fail('Student batch list', e.message)
+    }
+
+    try {
+      const { status } = await req('/batches/mine', { headers: authHeaders(studentToken2) })
+      if (status === 403 || status === 401) pass('Student blocked from instructor batches')
+      else fail('Student blocked from instructor batches', `expected 403 got ${status}`)
+    } catch (e) {
+      fail('Student blocked from instructor batches', e.message)
+    }
+  }
+
+  // ── Phase 3.7: Analytics & Reporting ───────────────────────────
+  if (studentToken2) {
+    try {
+      const { status, body } = await req('/analytics/student/me', { headers: authHeaders(studentToken2) })
+      if (status === 200 && typeof body.overallProgress === 'number') pass('Student analytics dashboard')
+      else fail('Student analytics dashboard', `status=${status}`)
+    } catch (e) {
+      fail('Student analytics dashboard', e.message)
+    }
+
+    try {
+      const { status, body } = await req('/analytics/student/widgets', { headers: authHeaders(studentToken2) })
+      if (status === 200 && body.progressCards) pass('Student analytics widgets')
+      else fail('Student analytics widgets', `status=${status}`)
+    } catch (e) {
+      fail('Student analytics widgets', e.message)
+    }
+
+    try {
+      const res = await fetch(`${API}/reports/student-progress?format=csv`, {
+        headers: { Authorization: `Bearer ${studentToken2}` },
+      })
+      if (res.ok && res.headers.get('content-type')?.includes('text/csv')) pass('Student progress report CSV')
+      else fail('Student progress report CSV', `status=${res.status}`)
+    } catch (e) {
+      fail('Student progress report CSV', e.message)
+    }
+
+    try {
+      const { status } = await req('/analytics/instructor/me', { headers: authHeaders(studentToken2) })
+      if (status === 403 || status === 401) pass('Student blocked from instructor analytics')
+      else fail('Student blocked from instructor analytics', `expected 403 got ${status}`)
+    } catch (e) {
+      fail('Student blocked from instructor analytics', e.message)
+    }
+  }
+
+  if (instructorToken2) {
+    try {
+      const { status, body } = await req('/analytics/instructor/me', { headers: authHeaders(instructorToken2) })
+      if (status === 200 && typeof body.totalStudents === 'number') pass('Instructor analytics dashboard')
+      else fail('Instructor analytics dashboard', `status=${status}`)
+    } catch (e) {
+      fail('Instructor analytics dashboard', e.message)
+    }
+
+    try {
+      const { status, body } = await req('/analytics/instructor/widgets', { headers: authHeaders(instructorToken2) })
+      if (status === 200 && typeof body.studentsEnrolled === 'number') pass('Instructor analytics widgets')
+      else fail('Instructor analytics widgets', `status=${status}`)
+    } catch (e) {
+      fail('Instructor analytics widgets', e.message)
+    }
+
+    try {
+      const { status, body } = await req('/analytics/instructor/heatmap', { headers: authHeaders(instructorToken2) })
+      if (status === 200 && Array.isArray(body.grid)) pass('Instructor activity heatmap')
+      else fail('Instructor activity heatmap', `status=${status}`)
+    } catch (e) {
+      fail('Instructor activity heatmap', e.message)
+    }
+
+    try {
+      const res = await fetch(`${API}/reports/assignments?format=csv`, {
+        headers: { Authorization: `Bearer ${instructorToken2}` },
+      })
+      if (res.ok && res.headers.get('content-type')?.includes('text/csv')) pass('Assignment report CSV')
+      else fail('Assignment report CSV', `status=${res.status}`)
+    } catch (e) {
+      fail('Assignment report CSV', e.message)
+    }
+
+    try {
+      const res = await fetch(`${API}/reports/quizzes?format=pdf`, {
+        headers: { Authorization: `Bearer ${instructorToken2}` },
+      })
+      if (res.ok && res.headers.get('content-type')?.includes('pdf')) pass('Quiz report PDF')
+      else fail('Quiz report PDF', `status=${res.status}`)
+    } catch (e) {
+      fail('Quiz report PDF', e.message)
+    }
+
+    try {
+      const res = await fetch(`${API}/reports/batches?format=xlsx`, {
+        headers: { Authorization: `Bearer ${instructorToken2}` },
+      })
+      if (res.ok && res.headers.get('content-type')?.includes('spreadsheet')) pass('Batch report Excel')
+      else fail('Batch report Excel', `status=${res.status}`)
+    } catch (e) {
+      fail('Batch report Excel', e.message)
+    }
+  }
+
+  // ── Phase 3.8: Media Storage & File Management ─────────────────
+  let mediaAssetId = ''
+
+  if (instructorToken2) {
+    try {
+      const png = Buffer.from(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+        'base64',
+      )
+      const form = new FormData()
+      form.append('file', new Blob([png], { type: 'image/png' }), 'test-avatar.png')
+      const res = await fetch(`${API}/media/avatars`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${instructorToken2}` },
+        body: form,
+      })
+      const body = await res.json().catch(() => ({}))
+      if (res.ok && body.id) {
+        mediaAssetId = body.id
+        pass('Upload avatar', body.filename)
+      } else fail('Upload avatar', `status=${res.status}`)
+    } catch (e) {
+      fail('Upload avatar', e.message)
+    }
+
+    try {
+      const { status, body } = await req('/media/stats', { headers: authHeaders(instructorToken2) })
+      if (status === 200 && typeof body.totalFiles === 'number') pass('Media storage stats', `${body.totalMb}MB`)
+      else fail('Media storage stats', `status=${status}`)
+    } catch (e) {
+      fail('Media storage stats', e.message)
+    }
+
+    try {
+      const { status, body } = await req('/media', { headers: authHeaders(instructorToken2) })
+      if (status === 200 && Array.isArray(body.items)) pass('List media library', `${body.total} items`)
+      else fail('List media library', `status=${status}`)
+    } catch (e) {
+      fail('List media library', e.message)
+    }
+
+    try {
+      const form = new FormData()
+      form.append('file', new Blob(['not-a-real-exe'], { type: 'application/x-msdownload' }), 'bad.exe')
+      form.append('assetType', 'avatar')
+      const res = await fetch(`${API}/media/upload`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${instructorToken2}` },
+        body: form,
+      })
+      if (res.status === 400) pass('Reject invalid upload type')
+      else fail('Reject invalid upload type', `expected 400 got ${res.status}`)
+    } catch (e) {
+      fail('Reject invalid upload type', e.message)
+    }
+  }
+
+  if (instructorToken2 && mediaAssetId) {
+    try {
+      const { status, body } = await req(`/media/${mediaAssetId}/url`, { headers: authHeaders(instructorToken2) })
+      if (status === 200 && body.url) pass('Signed media URL')
+      else fail('Signed media URL', `status=${status}`)
+    } catch (e) {
+      fail('Signed media URL', e.message)
+    }
+
+    try {
+      const res = await fetch(`${API}/media/${mediaAssetId}/download`, {
+        headers: { Authorization: `Bearer ${instructorToken2}` },
+      })
+      if (res.ok) pass('Media file download')
+      else fail('Media file download', `status=${res.status}`)
+    } catch (e) {
+      fail('Media file download', e.message)
+    }
+
+    try {
+      const { status } = await req(`/media/${mediaAssetId}`, {
+        method: 'DELETE',
+        headers: authHeaders(instructorToken2),
+      })
+      if (status === 200 || status === 201) pass('Delete media asset')
+      else fail('Delete media asset', `status=${status}`)
+    } catch (e) {
+      fail('Delete media asset', e.message)
+    }
+  }
+
+  // ── Phase 3.9: Production Hardening ───────────────────────────
+  try {
+    const { status, body } = await req('/health/live')
+    if (status === 200 && body.status === 'ok') pass('Liveness probe')
+    else fail('Liveness probe', `status=${status}`)
+  } catch (e) {
+    fail('Liveness probe', e.message)
+  }
+
+  try {
+    const { status, body } = await req('/health/ready')
+    if (status === 200 && body.checks?.database?.status === 'up') pass('Readiness probe')
+    else fail('Readiness probe', `status=${status}`)
+  } catch (e) {
+    fail('Readiness probe', e.message)
+  }
+
+  try {
+    const { status, body } = await req('/health/detailed')
+    if (status === 200 && body.checks) pass('Detailed health', Object.keys(body.checks).join(', '))
+    else fail('Detailed health', `status=${status}`)
+  } catch (e) {
+    fail('Detailed health', e.message)
   }
 
   printSummary()

@@ -1,20 +1,23 @@
-import { Injectable } from '@nestjs/common'
+import { Inject, Injectable } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { UserRole } from '@prisma/client'
 import { createHash, randomBytes } from 'crypto'
-import { DirectMailQueueService } from '../mail/direct-mail-queue.service'
+import type { MailQueue } from '../mail/mail-queue.interface'
+import { MAIL_QUEUE } from '../mail/mail-queue.interface'
 import { TemplateService } from '../mail/template.service'
 import { MailService } from '../mail/mail.service'
+import { RedisService } from '../../redis/redis.service'
 import { PrismaService } from '../../prisma/prisma.module'
 
 @Injectable()
 export class AuthMailService {
   constructor(
     private prisma: PrismaService,
-    private queue: DirectMailQueueService,
+    @Inject(MAIL_QUEUE) private queue: MailQueue,
     private templates: TemplateService,
     private mail: MailService,
     private config: ConfigService,
+    private redis: RedisService,
   ) {}
 
   hashToken(token: string): string {
@@ -44,6 +47,7 @@ export class AuthMailService {
     })
 
     const verifyUrl = `${this.mail.getAppUrl()}/verify-email?token=${encodeURIComponent(token)}`
+    await this.storeTestToken(email, 'verify', token)
     await this.queue.enqueue({
       to: email,
       subject: `Verify your ${this.mail.getAppName()} account`,
@@ -81,11 +85,17 @@ export class AuthMailService {
     })
 
     const resetUrl = `${this.mail.getAppUrl()}/reset-password?token=${encodeURIComponent(token)}`
+    await this.storeTestToken(email, 'reset', token)
     await this.queue.enqueue({
       to: email,
       subject: `Reset your ${this.mail.getAppName()} password`,
       html: this.templates.passwordResetEmail(name, resetUrl, hours),
       text: `Reset your password: ${resetUrl}`,
     })
+  }
+
+  private async storeTestToken(email: string, kind: 'verify' | 'reset', token: string) {
+    if (this.config.get<string>('E2E_TEST_MODE') !== 'true') return
+    await this.redis.set(`e2e:token:${kind}:${email.toLowerCase()}`, token, 600)
   }
 }

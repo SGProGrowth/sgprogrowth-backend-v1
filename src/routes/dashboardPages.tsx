@@ -88,11 +88,23 @@ export const InstructorSettingsPage = lazy(() =>
 export const InstructorAssignmentsPage = lazy(() =>
   import('../pages/dashboard/instructor/InstructorAssignmentsPage').then((m) => ({ default: m.InstructorAssignmentsPage })),
 )
+export const StudentQuizStartPage = lazy(() =>
+  import('../pages/dashboard/student/StudentQuizStartPage').then((m) => ({ default: m.StudentQuizStartPage })),
+)
+export const StudentQuizPlayerPage = lazy(() =>
+  import('../pages/dashboard/student/StudentQuizPlayerPage').then((m) => ({ default: m.StudentQuizPlayerPage })),
+)
+export const StudentQuizResultPage = lazy(() =>
+  import('../pages/dashboard/student/StudentQuizPlayerPage').then((m) => ({ default: m.StudentQuizResultPage })),
+)
 export const InstructorQuizzesPage = lazy(() =>
   import('../pages/dashboard/instructor/InstructorQuizzesPage').then((m) => ({ default: m.InstructorQuizzesPage })),
 )
 export const InstructorQuestionBankPage = lazy(() =>
   import('../pages/dashboard/instructor/InstructorQuestionBankPage').then((m) => ({ default: m.InstructorQuestionBankPage })),
+)
+export const InstructorCertificatesPage = lazy(() =>
+  import('../pages/dashboard/instructor/InstructorCertificatesPage').then((m) => ({ default: m.InstructorCertificatesPage })),
 )
 export const InstructorBatchesPage = lazy(() =>
   import('../pages/dashboard/instructor/InstructorBatchesPage').then((m) => ({ default: m.InstructorBatchesPage })),

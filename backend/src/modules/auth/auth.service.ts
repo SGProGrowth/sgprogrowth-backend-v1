@@ -3,6 +3,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
@@ -13,6 +14,7 @@ import { OrganizationsService } from '../organizations/organizations.service'
 import { UsersService } from '../users/users.service'
 import { AuthMailService } from './auth-mail.service'
 import { initialsFromName, TokenService } from './token.service'
+import { RedisService } from '../../redis/redis.service'
 import type { AuthTokensDto, RegisterResponseDto } from '../../common/dto/auth.dto'
 
 @Injectable()
@@ -24,6 +26,7 @@ export class AuthService {
     private tokenService: TokenService,
     private authMail: AuthMailService,
     private config: ConfigService,
+    private redis: RedisService,
   ) {}
 
   private requireVerification(): boolean {
@@ -394,5 +397,15 @@ export class AuthService {
         emailVerified: input.emailVerified,
       },
     }
+  }
+
+  async getTestToken(email: string, type: 'verify' | 'reset') {
+    if (this.config.get<string>('E2E_TEST_MODE') !== 'true') {
+      throw new ForbiddenException('Not available')
+    }
+    if (!email || !type) throw new BadRequestException('email and type required')
+    const token = await this.redis.get(`e2e:token:${type}:${email.toLowerCase()}`)
+    if (!token) throw new NotFoundException('Token not found or expired')
+    return { token }
   }
 }

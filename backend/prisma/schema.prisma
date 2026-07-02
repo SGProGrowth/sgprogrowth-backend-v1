@@ -44,6 +44,15 @@ enum CourseStatus {
   archived
 }
 
+enum LessonType {
+  video
+  pdf
+  resource
+  live
+  quiz
+  assignment
+}
+
 enum EnrollmentStatus {
   active
   completed
@@ -51,10 +60,47 @@ enum EnrollmentStatus {
 }
 
 enum BatchStatus {
+  draft
   upcoming
   active
   completed
   cancelled
+  archived
+}
+
+enum BatchVisibility {
+  public
+  private
+  invite
+}
+
+enum BatchInstructorRole {
+  lead
+  assistant
+}
+
+enum BatchEnrollmentStatus {
+  active
+  waitlist
+  completed
+  dropped
+}
+
+enum BatchImportJobStatus {
+  pending
+  preview
+  processing
+  completed
+  failed
+  rolled_back
+}
+
+enum BatchImportRowStatus {
+  valid
+  warning
+  error
+  imported
+  skipped
 }
 
 enum AssignmentStatus {
@@ -68,6 +114,12 @@ enum SubmissionStatus {
   submitted
   graded
   late
+  returned
+}
+
+enum AssignmentVisibility {
+  enrolled
+  hidden
 }
 
 enum QuizStatus {
@@ -76,11 +128,46 @@ enum QuizStatus {
   archived
 }
 
+enum QuizVisibility {
+  enrolled
+  hidden
+  public
+}
+
+enum QuizAttemptStatus {
+  in_progress
+  submitted
+  auto_graded
+  pending_manual
+  graded
+  expired
+}
+
+enum QuizAnswerGradingStatus {
+  ungraded
+  auto_graded
+  pending_manual
+  manually_graded
+}
+
+enum QuizQuestionSelectionMode {
+  manual
+  category
+  tag
+  difficulty
+  random
+}
+
 enum QuestionType {
   multiple_choice
+  multiple_choice_multi
   true_false
   short_answer
   essay
+  long_answer
+  fill_blank
+  matching
+  ordering
 }
 
 enum QuestionDifficulty {
@@ -103,15 +190,43 @@ enum NotificationType {
   enrollment
   system
   message
+  progress
+  certificate
+  batch
 }
 
-enum LessonType {
-  video
-  pdf
-  resource
-  live
-  quiz
-  assignment
+enum CertificateStatus {
+  active
+  revoked
+  expired
+  superseded
+}
+
+enum CertificateVerificationResult {
+  valid
+  invalid
+  revoked
+  expired
+}
+
+enum LessonProgressStatus {
+  not_started
+  in_progress
+  completed
+}
+
+enum LearningActivityType {
+  lesson_started
+  lesson_completed
+  lesson_incomplete
+  video_progress
+  resource_download
+  assignment_submitted
+  quiz_submitted
+  quiz_passed
+  module_completed
+  course_completed
+  live_attended
 }
 
 enum CoachingSessionStatus {
@@ -129,6 +244,27 @@ enum AnnouncementAudience {
 enum AnnouncementStatus {
   draft
   sent
+}
+
+enum MediaAssetType {
+  avatar
+  course_thumbnail
+  course_banner
+  batch_thumbnail
+  batch_banner
+  lesson_resource
+  assignment_attachment
+  submission_file
+  certificate_pdf
+  image
+  document
+  archive
+  other
+}
+
+enum MediaVisibility {
+  public
+  private
 }
 
 // ─── Identity & auth ─────────────────────────────────────────────────────────
@@ -157,10 +293,24 @@ model User {
   threadParticipants  ThreadParticipant[]
   calendarEvents      CalendarEvent[]
   coachingSessions    CoachingSession[]    @relation("CoachingInstructor")
-  questionBankItems   QuestionBankItem[]
+  questions           Question[]
+  createdQuestions    Question[]           @relation("QuestionCreatedBy")
+  updatedQuestions    Question[]           @relation("QuestionUpdatedBy")
+  questionVersions    QuestionVersion[]    @relation("QuestionVersionAuthor")
+  questionCategories  QuestionCategory[]
   assignments         Assignment[]         @relation("AssignmentInstructor")
+  gradedSubmissions   AssignmentSubmission[] @relation("SubmissionGrader")
+  assignmentGrades    AssignmentGrade[]    @relation("AssignmentGradeGrader")
   quizzes             Quiz[]               @relation("QuizInstructor")
   announcements       Announcement[]
+  learningActivities    LearningActivity[]
+  studentCertificates   Certificate[]        @relation("StudentCertificates")
+  revokedCertificates   Certificate[]        @relation("RevokedCertificates")
+  issuedCertificates    Certificate[]        @relation("IssuedCertificates")
+  batchInstructorRoles  BatchInstructor[]
+  batchImportJobs       BatchImportJob[]
+  batchEnrollments      BatchEnrollment[]
+  mediaAssets           MediaAsset[]
 
   @@map("users")
 }
@@ -243,8 +393,14 @@ model Organization {
   enrollments  Enrollment[]
   assignments  Assignment[]
   quizzes      Quiz[]
-  questionBank QuestionBankItem[]
+  questionBank Question[]
+  questionCategories QuestionCategory[]
+  questionTags QuestionTag[]
   announcements Announcement[]
+  certificateTemplates CertificateTemplate[]
+  certificates Certificate[]
+  batchImportJobs BatchImportJob[]
+  mediaAssets     MediaAsset[]
 
   @@map("organizations")
 }
@@ -361,7 +517,16 @@ model Course {
   enrollments  Enrollment[]
   assignments  Assignment[]
   quizzes      Quiz[]
+  questions    Question[]
   announcements Announcement[]
+  lessonProgress LessonProgress[]
+  moduleProgress ModuleProgress[]
+  courseProgress CourseProgress[]
+  learningActivities LearningActivity[]
+  certificates       Certificate[]
+  certificateRule    CertificateCompletionRule?
+  batchImportJobs    BatchImportJob[]
+  mediaAssets        MediaAsset[]
 
   @@unique([organizationId, slug])
   @@index([instructorId, status])
@@ -402,6 +567,11 @@ model CourseModule {
 
   course  Course         @relation(fields: [courseId], references: [id], onDelete: Cascade)
   lessons CourseLesson[]
+  assignments Assignment[]
+  questions Question[]
+  quizzes Quiz[]
+  lessonProgress LessonProgress[]
+  moduleProgress ModuleProgress[]
 
   @@index([courseId])
   @@map("course_modules")
@@ -421,6 +591,14 @@ model CourseLesson {
 
   module CourseModule  @relation(fields: [moduleId], references: [id], onDelete: Cascade)
   assets LessonAsset[]
+  assignments Assignment[]
+  questions Question[]
+  quizzes Quiz[]
+  lessonProgress LessonProgress[]
+  enrollmentLastLesson Enrollment[] @relation("EnrollmentLastLesson")
+  courseProgressLastLesson CourseProgress[] @relation("CourseProgressLastLesson")
+  learningActivities LearningActivity[]
+  mediaAssets MediaAsset[]
 
   @@index([moduleId])
   @@map("course_lessons")
@@ -444,26 +622,137 @@ model LessonAsset {
 // ─── Enrollments & batches ────────────────────────────────────────────────────
 
 model Batch {
-  id             String      @id @default(uuid()) @db.Uuid
-  organizationId String      @map("organization_id") @db.Uuid
-  courseId       String      @map("course_id") @db.Uuid
-  instructorId   String      @map("instructor_id") @db.Uuid
-  name           String      @db.VarChar(255)
-  startDate      DateTime    @map("start_date") @db.Date
-  endDate        DateTime?   @map("end_date") @db.Date
-  schedule       String?     @db.VarChar(255)
-  maxCapacity    Int         @default(30) @map("max_capacity")
-  status         BatchStatus @default(upcoming)
-  completionRate Float       @default(0) @map("completion_rate")
-  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt      DateTime    @updatedAt @map("updated_at") @db.Timestamptz
+  id             String          @id @default(uuid()) @db.Uuid
+  organizationId String          @map("organization_id") @db.Uuid
+  courseId       String          @map("course_id") @db.Uuid
+  instructorId   String          @map("instructor_id") @db.Uuid
+  batchCode      String          @map("batch_code") @db.VarChar(50)
+  name           String          @db.VarChar(255)
+  description    String?         @db.Text
+  startDate      DateTime        @map("start_date") @db.Date
+  endDate        DateTime?       @map("end_date") @db.Date
+  schedule       String?         @db.VarChar(255)
+  maxCapacity    Int             @default(30) @map("max_capacity")
+  status         BatchStatus     @default(draft)
+  visibility     BatchVisibility @default(private)
+  published      Boolean         @default(false)
+  thumbnailUrl   String?         @map("thumbnail_url") @db.VarChar(512)
+  bannerUrl      String?         @map("banner_url") @db.VarChar(512)
+  completionRate Float           @default(0) @map("completion_rate")
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime        @updatedAt @map("updated_at") @db.Timestamptz
 
-  organization Organization @relation(fields: [organizationId], references: [id])
-  course       Course       @relation(fields: [courseId], references: [id])
-  enrollments  Enrollment[]
+  organization    Organization      @relation(fields: [organizationId], references: [id])
+  course          Course            @relation(fields: [courseId], references: [id])
+  instructors     BatchInstructor[]
+  batchEnrollments BatchEnrollment[]
+  enrollments     Enrollment[]
+  events          BatchEvent[]
+  importJobs      BatchImportJob[]
+  mediaAssets     MediaAsset[]
 
+  @@unique([organizationId, batchCode])
   @@index([courseId, status])
+  @@index([organizationId, published])
   @@map("batches")
+}
+
+model BatchInstructor {
+  id           String              @id @default(uuid()) @db.Uuid
+  batchId      String              @map("batch_id") @db.Uuid
+  instructorId String              @map("instructor_id") @db.Uuid
+  role         BatchInstructorRole @default(assistant)
+  permissions  Json                @default("{}")
+  createdAt    DateTime            @default(now()) @map("created_at") @db.Timestamptz
+
+  batch      Batch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  instructor User  @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+
+  @@unique([batchId, instructorId])
+  @@index([instructorId])
+  @@map("batch_instructors")
+}
+
+model BatchEnrollment {
+  id           String                @id @default(uuid()) @db.Uuid
+  batchId      String                @map("batch_id") @db.Uuid
+  studentId    String                @map("student_id") @db.Uuid
+  enrollmentId String?               @map("enrollment_id") @db.Uuid
+  status       BatchEnrollmentStatus @default(active)
+  enrolledAt   DateTime              @default(now()) @map("enrolled_at") @db.Timestamptz
+  droppedAt    DateTime?             @map("dropped_at") @db.Timestamptz
+  notes        String?               @db.Text
+
+  batch      Batch       @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  student    User        @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  enrollment Enrollment? @relation(fields: [enrollmentId], references: [id], onDelete: SetNull)
+
+  @@unique([batchId, studentId])
+  @@index([batchId, status])
+  @@index([studentId])
+  @@map("batch_enrollments")
+}
+
+model BatchEvent {
+  id             String   @id @default(uuid()) @db.Uuid
+  batchId        String   @map("batch_id") @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  title          String   @db.VarChar(500)
+  description    String?  @db.Text
+  type           String   @db.VarChar(50)
+  startsAt       DateTime @map("starts_at") @db.Timestamptz
+  endsAt         DateTime? @map("ends_at") @db.Timestamptz
+  metadata       Json     @default("{}")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  batch Batch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@index([batchId, startsAt])
+  @@map("batch_events")
+}
+
+model BatchImportJob {
+  id             String               @id @default(uuid()) @db.Uuid
+  organizationId String               @map("organization_id") @db.Uuid
+  instructorId   String               @map("instructor_id") @db.Uuid
+  batchId        String?              @map("batch_id") @db.Uuid
+  courseId       String?              @map("course_id") @db.Uuid
+  fileName       String               @map("file_name") @db.VarChar(255)
+  status         BatchImportJobStatus @default(pending)
+  totalRows      Int                  @default(0) @map("total_rows")
+  successCount   Int                  @default(0) @map("success_count")
+  failureCount   Int                  @default(0) @map("failure_count")
+  warningCount   Int                  @default(0) @map("warning_count")
+  columnMapping  Json                 @default("{}") @map("column_mapping")
+  summary        Json                 @default("{}")
+  createdAt      DateTime             @default(now()) @map("created_at") @db.Timestamptz
+  completedAt    DateTime?            @map("completed_at") @db.Timestamptz
+
+  organization Organization    @relation(fields: [organizationId], references: [id])
+  instructor   User            @relation(fields: [instructorId], references: [id])
+  batch        Batch?          @relation(fields: [batchId], references: [id], onDelete: SetNull)
+  course       Course?         @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  rows         BatchImportRow[]
+
+  @@index([instructorId, createdAt])
+  @@map("batch_import_jobs")
+}
+
+model BatchImportRow {
+  id           String               @id @default(uuid()) @db.Uuid
+  jobId        String               @map("job_id") @db.Uuid
+  rowNumber    Int                  @map("row_number")
+  rawData      Json                 @default("{}") @map("raw_data")
+  parsedData   Json                 @default("{}") @map("parsed_data")
+  status       BatchImportRowStatus @default(valid)
+  message      String?              @db.Text
+  studentId    String?              @map("student_id") @db.Uuid
+  enrollmentId String?              @map("enrollment_id") @db.Uuid
+
+  job BatchImportJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId, status])
+  @@map("batch_import_rows")
 }
 
 model Enrollment {
@@ -476,6 +765,7 @@ model Enrollment {
   progressPct      Int              @default(0) @map("progress_pct")
   modulesCompleted Int              @default(0) @map("modules_completed")
   hoursSpent       Float            @default(0) @map("hours_spent")
+  lastLessonId     String?          @map("last_lesson_id") @db.Uuid
   enrolledAt       DateTime         @default(now()) @map("enrolled_at") @db.Timestamptz
   completedAt      DateTime?        @map("completed_at") @db.Timestamptz
   lastAccessedAt   DateTime?        @map("last_accessed_at") @db.Timestamptz
@@ -484,11 +774,19 @@ model Enrollment {
   student      User                   @relation(fields: [studentId], references: [id])
   course       Course                 @relation(fields: [courseId], references: [id])
   batch        Batch?                 @relation(fields: [batchId], references: [id])
+  lastLesson   CourseLesson?          @relation("EnrollmentLastLesson", fields: [lastLessonId], references: [id], onDelete: SetNull)
   submissions  AssignmentSubmission[]
   quizAttempts QuizAttempt[]
+  quizResults  QuizResult[]
   certificates Certificate[]
   milestones   EnrollmentMilestone[]
   coachingSessions CoachingSession[]
+  lessonProgress   LessonProgress[]
+  moduleProgress   ModuleProgress[]
+  courseProgress   CourseProgress?
+  progressHistory  ProgressHistory[]
+  learningActivities LearningActivity[]
+  batchEnrollments   BatchEnrollment[]
 
   @@unique([studentId, courseId])
   @@index([studentId, status])
@@ -510,110 +808,459 @@ model EnrollmentMilestone {
   @@map("enrollment_milestones")
 }
 
+model LessonProgress {
+  id                 String               @id @default(uuid()) @db.Uuid
+  enrollmentId       String               @map("enrollment_id") @db.Uuid
+  lessonId           String               @map("lesson_id") @db.Uuid
+  moduleId           String               @map("module_id") @db.Uuid
+  courseId           String               @map("course_id") @db.Uuid
+  status             LessonProgressStatus @default(not_started)
+  videoProgressPct   Int                  @default(0) @map("video_progress_pct")
+  timeSpentSeconds   Int                  @default(0) @map("time_spent_seconds")
+  resourceDownloaded Boolean              @default(false) @map("resource_downloaded")
+  visitCount         Int                  @default(0) @map("visit_count")
+  completedAt        DateTime?            @map("completed_at") @db.Timestamptz
+  lastAccessedAt     DateTime?            @map("last_accessed_at") @db.Timestamptz
+  createdAt          DateTime             @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime             @updatedAt @map("updated_at") @db.Timestamptz
+
+  enrollment Enrollment   @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  lesson     CourseLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  module     CourseModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  course     Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([enrollmentId, lessonId])
+  @@index([enrollmentId, status])
+  @@index([courseId, lessonId])
+  @@map("lesson_progress")
+}
+
+model ModuleProgress {
+  id                       String    @id @default(uuid()) @db.Uuid
+  enrollmentId             String    @map("enrollment_id") @db.Uuid
+  moduleId                 String    @map("module_id") @db.Uuid
+  courseId                 String    @map("course_id") @db.Uuid
+  completedLessons         Int       @default(0) @map("completed_lessons")
+  totalLessons             Int       @default(0) @map("total_lessons")
+  progressPct              Int       @default(0) @map("progress_pct")
+  estimatedMinutesRemaining Int?     @map("estimated_minutes_remaining")
+  completedAt              DateTime? @map("completed_at") @db.Timestamptz
+  updatedAt                DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  enrollment Enrollment   @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  module     CourseModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  course     Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([enrollmentId, moduleId])
+  @@index([enrollmentId])
+  @@map("module_progress")
+}
+
+model CourseProgress {
+  id                   String    @id @default(uuid()) @db.Uuid
+  enrollmentId         String    @unique @map("enrollment_id") @db.Uuid
+  courseId             String    @map("course_id") @db.Uuid
+  studentId            String    @map("student_id") @db.Uuid
+  lessonsCompleted     Int       @default(0) @map("lessons_completed")
+  totalLessons         Int       @default(0) @map("total_lessons")
+  modulesCompleted     Int       @default(0) @map("modules_completed")
+  totalModules         Int       @default(0) @map("total_modules")
+  assignmentsCompleted Int       @default(0) @map("assignments_completed")
+  totalAssignments     Int       @default(0) @map("total_assignments")
+  quizzesCompleted     Int       @default(0) @map("quizzes_completed")
+  totalQuizzes         Int       @default(0) @map("total_quizzes")
+  progressPct          Int       @default(0) @map("progress_pct")
+  timeSpentSeconds     Int       @default(0) @map("time_spent_seconds")
+  lastLessonId         String?   @map("last_lesson_id") @db.Uuid
+  startedAt            DateTime  @default(now()) @map("started_at") @db.Timestamptz
+  lastActivityAt       DateTime? @map("last_activity_at") @db.Timestamptz
+  completedAt          DateTime? @map("completed_at") @db.Timestamptz
+  updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  enrollment Enrollment   @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  course     Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lastLesson CourseLesson? @relation("CourseProgressLastLesson", fields: [lastLessonId], references: [id], onDelete: SetNull)
+
+  @@index([courseId, progressPct])
+  @@index([studentId])
+  @@map("course_progress")
+}
+
+model LearningActivity {
+  id           String               @id @default(uuid()) @db.Uuid
+  userId       String               @map("user_id") @db.Uuid
+  enrollmentId String?              @map("enrollment_id") @db.Uuid
+  courseId     String?              @map("course_id") @db.Uuid
+  lessonId     String?              @map("lesson_id") @db.Uuid
+  type         LearningActivityType
+  metadata     Json                 @default("{}")
+  createdAt    DateTime             @default(now()) @map("created_at") @db.Timestamptz
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  enrollment Enrollment? @relation(fields: [enrollmentId], references: [id], onDelete: SetNull)
+  course     Course?     @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  lesson     CourseLesson? @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([enrollmentId, createdAt])
+  @@index([courseId, type])
+  @@map("learning_activities")
+}
+
+model ProgressHistory {
+  id             String   @id @default(uuid()) @db.Uuid
+  enrollmentId   String   @map("enrollment_id") @db.Uuid
+  progressPct    Int      @map("progress_pct")
+  previousPct    Int      @map("previous_pct")
+  trigger        String   @db.VarChar(100)
+  snapshot       Json     @default("{}")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  enrollment Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+
+  @@index([enrollmentId, createdAt])
+  @@map("progress_history")
+}
+
 // ─── Assessments ──────────────────────────────────────────────────────────────
 
-model QuestionBankItem {
-  id             String             @id @default(uuid()) @db.Uuid
-  organizationId String             @map("organization_id") @db.Uuid
-  instructorId   String             @map("instructor_id") @db.Uuid
-  questionText   String             @map("question_text") @db.Text
-  type           QuestionType
-  category       String?            @db.VarChar(100)
-  difficulty     QuestionDifficulty @default(medium)
-  points         Int                @default(1)
-  tags           String[]           @default([])
-  options        Json               @default("{}")
-  correctAnswer  Json               @default("{}") @map("correct_answer")
-  status         QuestionStatus     @default(active)
-  createdAt      DateTime           @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt      DateTime           @updatedAt @map("updated_at") @db.Timestamptz
+model Question {
+  id               String             @id @default(uuid()) @db.Uuid
+  organizationId   String             @map("organization_id") @db.Uuid
+  instructorId     String             @map("instructor_id") @db.Uuid
+  createdById      String             @map("created_by_id") @db.Uuid
+  updatedById      String?            @map("updated_by_id") @db.Uuid
+  courseId         String?            @map("course_id") @db.Uuid
+  moduleId         String?            @map("module_id") @db.Uuid
+  lessonId         String?            @map("lesson_id") @db.Uuid
+  categoryId       String?            @map("category_id") @db.Uuid
+  title            String?            @db.VarChar(500)
+  questionText     String             @map("question_text") @db.Text
+  explanation      String?            @db.Text
+  type             QuestionType
+  category         String?            @db.VarChar(100)
+  subject          String?            @db.VarChar(150)
+  topic            String?            @db.VarChar(150)
+  difficulty       QuestionDifficulty @default(medium)
+  marks            Int                @default(1) @map("points")
+  negativeMarks    Float?             @map("negative_marks")
+  estimatedSeconds Int?               @map("estimated_seconds")
+  codeSnippet      String?            @map("code_snippet") @db.Text
+  tags             String[]           @default([])
+  options          Json               @default("{}")
+  correctAnswer    Json               @default("{}") @map("correct_answer")
+  status           QuestionStatus     @default(active)
+  currentVersion   Int                @default(1) @map("current_version")
+  createdAt        DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime           @updatedAt @map("updated_at") @db.Timestamptz
 
-  organization Organization  @relation(fields: [organizationId], references: [id])
-  instructor   User          @relation(fields: [instructorId], references: [id])
+  organization Organization       @relation(fields: [organizationId], references: [id])
+  instructor   User               @relation(fields: [instructorId], references: [id])
+  createdBy    User               @relation("QuestionCreatedBy", fields: [createdById], references: [id])
+  updatedBy    User?              @relation("QuestionUpdatedBy", fields: [updatedById], references: [id])
+  course       Course?            @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  module       CourseModule?      @relation(fields: [moduleId], references: [id], onDelete: SetNull)
+  lesson       CourseLesson?      @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+  bankCategory QuestionCategory?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  optionRows   QuestionOption[]
+  tagLinks     QuestionTagLink[]
+  attachments  QuestionAttachment[]
+  versions     QuestionVersion[]
   quizQuestions QuizQuestion[]
+  quizAnswers  QuizAnswer[]
 
+  @@index([organizationId, instructorId, status])
   @@index([instructorId, status])
+  @@index([courseId])
+  @@index([categoryId])
+  @@index([type, difficulty])
   @@map("question_bank_items")
 }
 
+model QuestionOption {
+  id          String  @id @default(uuid()) @db.Uuid
+  questionId  String  @map("question_id") @db.Uuid
+  label       String? @db.VarChar(10)
+  text        String  @db.Text
+  isCorrect   Boolean @default(false) @map("is_correct")
+  sortOrder   Int     @default(0) @map("sort_order")
+  matchKey    String? @map("match_key") @db.VarChar(100)
+  matchValue  String? @map("match_value") @db.Text
+
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([questionId, sortOrder])
+  @@map("question_options")
+}
+
+model QuestionCategory {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  instructorId   String?  @map("instructor_id") @db.Uuid
+  name           String   @db.VarChar(150)
+  slug           String   @db.VarChar(150)
+  subject        String?  @db.VarChar(150)
+  parentId       String?  @map("parent_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  organization Organization      @relation(fields: [organizationId], references: [id])
+  instructor   User?             @relation(fields: [instructorId], references: [id], onDelete: SetNull)
+  parent       QuestionCategory? @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children     QuestionCategory[] @relation("CategoryHierarchy")
+  questions    Question[]
+
+  @@unique([organizationId, slug])
+  @@index([organizationId, instructorId])
+  @@map("question_categories")
+}
+
+model QuestionTag {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  name           String   @db.VarChar(100)
+  slug           String   @db.VarChar(100)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  organization Organization      @relation(fields: [organizationId], references: [id])
+  questions    QuestionTagLink[]
+
+  @@unique([organizationId, slug])
+  @@map("question_tags")
+}
+
+model QuestionTagLink {
+  questionId String @map("question_id") @db.Uuid
+  tagId      String @map("tag_id") @db.Uuid
+
+  question Question    @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  tag      QuestionTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([questionId, tagId])
+  @@map("question_tag_links")
+}
+
+model QuestionAttachment {
+  id         String   @id @default(uuid()) @db.Uuid
+  questionId String   @map("question_id") @db.Uuid
+  storageKey String   @map("storage_key") @db.VarChar(512)
+  filename   String   @db.VarChar(255)
+  mimeType   String   @map("mime_type") @db.VarChar(128)
+  sizeBytes  Int      @map("size_bytes")
+  kind       String   @default("file") @db.VarChar(20)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([questionId])
+  @@map("question_attachments")
+}
+
+model QuestionVersion {
+  id            String   @id @default(uuid()) @db.Uuid
+  questionId    String   @map("question_id") @db.Uuid
+  versionNumber Int      @map("version_number")
+  snapshot      Json
+  changedById   String   @map("changed_by_id") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  question  Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  changedBy User     @relation("QuestionVersionAuthor", fields: [changedById], references: [id])
+
+  @@unique([questionId, versionNumber])
+  @@index([questionId, createdAt])
+  @@map("question_versions")
+}
+
 model Quiz {
-  id              String     @id @default(uuid()) @db.Uuid
-  organizationId  String     @map("organization_id") @db.Uuid
-  instructorId    String     @map("instructor_id") @db.Uuid
-  courseId        String?    @map("course_id") @db.Uuid
-  title           String     @db.VarChar(500)
-  durationMinutes Int        @default(30) @map("duration_minutes")
-  maxAttempts     Int        @default(3) @map("max_attempts")
-  passScore       Int?       @map("pass_score")
-  isGeneric       Boolean    @default(false) @map("is_generic")
-  status          QuizStatus @default(draft)
-  createdAt       DateTime   @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt       DateTime   @updatedAt @map("updated_at") @db.Timestamptz
+  id                    String                    @id @default(uuid()) @db.Uuid
+  organizationId        String                    @map("organization_id") @db.Uuid
+  instructorId          String                    @map("instructor_id") @db.Uuid
+  courseId              String?                   @map("course_id") @db.Uuid
+  moduleId              String?                   @map("module_id") @db.Uuid
+  lessonId              String?                   @map("lesson_id") @db.Uuid
+  title                 String                    @db.VarChar(500)
+  description           String?                   @db.Text
+  instructions          String?                   @db.Text
+  durationMinutes       Int                       @default(30) @map("duration_minutes")
+  unlimitedDuration     Boolean                   @default(false) @map("unlimited_duration")
+  maxAttempts           Int                       @default(3) @map("max_attempts")
+  passScore             Int?                      @map("pass_score")
+  totalMarks            Int?                      @map("total_marks")
+  isGeneric             Boolean                   @default(false) @map("is_generic")
+  randomizeQuestions    Boolean                   @default(false) @map("randomize_questions")
+  randomizeOptions      Boolean                   @default(false) @map("randomize_options")
+  negativeMarking       Boolean                   @default(false) @map("negative_marking")
+  showScoreImmediately  Boolean                   @default(true) @map("show_score_immediately")
+  showCorrectAnswers    Boolean                   @default(false) @map("show_correct_answers")
+  showExplanations      Boolean                   @default(false) @map("show_explanations")
+  availableFrom         DateTime?                 @map("available_from") @db.Timestamptz
+  availableUntil        DateTime?                 @map("available_until") @db.Timestamptz
+  visibility            QuizVisibility            @default(enrolled)
+  selectionMode         QuizQuestionSelectionMode @default(manual) @map("selection_mode")
+  selectionRules        Json?                     @map("selection_rules")
+  status                QuizStatus                @default(draft)
+  createdAt             DateTime                  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime                  @updatedAt @map("updated_at") @db.Timestamptz
 
   organization Organization @relation(fields: [organizationId], references: [id])
   instructor   User         @relation("QuizInstructor", fields: [instructorId], references: [id])
   course       Course?      @relation(fields: [courseId], references: [id])
+  module       CourseModule? @relation(fields: [moduleId], references: [id])
+  lesson       CourseLesson? @relation(fields: [lessonId], references: [id])
   questions    QuizQuestion[]
   attempts     QuizAttempt[]
+  results      QuizResult[]
 
   @@index([instructorId, status])
+  @@index([courseId, status])
   @@map("quizzes")
 }
 
 model QuizQuestion {
   id                 String @id @default(uuid()) @db.Uuid
   quizId             String @map("quiz_id") @db.Uuid
-  questionBankItemId String @map("question_bank_item_id") @db.Uuid
+  questionId         String @map("question_bank_item_id") @db.Uuid
+  pinnedVersion      Int?   @map("pinned_version")
   sortOrder          Int    @default(0) @map("sort_order")
   pointsOverride     Int?   @map("points_override")
 
-  quiz             Quiz             @relation(fields: [quizId], references: [id], onDelete: Cascade)
-  questionBankItem QuestionBankItem @relation(fields: [questionBankItemId], references: [id])
+  quiz     Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id])
+  answers  QuizAnswer[]
 
+  @@index([quizId, sortOrder])
   @@map("quiz_questions")
 }
 
 model QuizAttempt {
-  id            String    @id @default(uuid()) @db.Uuid
-  quizId        String    @map("quiz_id") @db.Uuid
-  enrollmentId  String    @map("enrollment_id") @db.Uuid
-  attemptNumber Int       @map("attempt_number")
-  score         Int?
-  maxScore      Int       @map("max_score")
-  status        String    @db.VarChar(50)
-  answers       Json      @default("{}")
-  startedAt     DateTime  @default(now()) @map("started_at") @db.Timestamptz
-  submittedAt   DateTime? @map("submitted_at") @db.Timestamptz
+  id                   String            @id @default(uuid()) @db.Uuid
+  quizId               String            @map("quiz_id") @db.Uuid
+  enrollmentId         String            @map("enrollment_id") @db.Uuid
+  attemptNumber        Int               @map("attempt_number")
+  score                Float?            @db.DoublePrecision
+  maxScore             Float             @map("max_score") @db.DoublePrecision
+  percentage           Float?            @db.DoublePrecision
+  passed               Boolean?
+  status               QuizAttemptStatus @default(in_progress)
+  timeTakenSeconds     Int?              @map("time_taken_seconds")
+  flaggedQuestionIds   Json              @default("[]") @map("flagged_question_ids")
+  answers              Json              @default("{}")
+  expiresAt            DateTime?         @map("expires_at") @db.Timestamptz
+  startedAt            DateTime          @default(now()) @map("started_at") @db.Timestamptz
+  submittedAt          DateTime?         @map("submitted_at") @db.Timestamptz
+  lastSavedAt          DateTime?         @map("last_saved_at") @db.Timestamptz
 
   quiz       Quiz       @relation(fields: [quizId], references: [id])
   enrollment Enrollment @relation(fields: [enrollmentId], references: [id])
+  answerRows QuizAnswer[]
+  result     QuizResult?
 
+  @@unique([quizId, enrollmentId, attemptNumber])
   @@index([enrollmentId])
+  @@index([quizId, status])
   @@map("quiz_attempts")
 }
 
+model QuizAnswer {
+  id             String                  @id @default(uuid()) @db.Uuid
+  attemptId      String                  @map("attempt_id") @db.Uuid
+  quizQuestionId String                  @map("quiz_question_id") @db.Uuid
+  questionId     String                  @map("question_id") @db.Uuid
+  response       Json                    @default("{}")
+  score          Float?                  @db.DoublePrecision
+  maxScore       Float                   @map("max_score") @db.DoublePrecision
+  isCorrect      Boolean?                @map("is_correct")
+  gradingStatus  QuizAnswerGradingStatus @default(ungraded) @map("grading_status")
+  feedback       String?                 @db.Text
+  flagged        Boolean                 @default(false)
+  createdAt      DateTime                @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime                @updatedAt @map("updated_at") @db.Timestamptz
+
+  attempt      QuizAttempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  quizQuestion QuizQuestion @relation(fields: [quizQuestionId], references: [id])
+  question     Question     @relation(fields: [questionId], references: [id])
+
+  @@unique([attemptId, quizQuestionId])
+  @@index([attemptId])
+  @@map("quiz_answers")
+}
+
+model QuizResult {
+  id               String            @id @default(uuid()) @db.Uuid
+  attemptId        String            @unique @map("attempt_id") @db.Uuid
+  quizId           String            @map("quiz_id") @db.Uuid
+  enrollmentId     String            @map("enrollment_id") @db.Uuid
+  attemptNumber    Int               @map("attempt_number")
+  totalScore       Float             @map("total_score") @db.DoublePrecision
+  maxScore         Float             @map("max_score") @db.DoublePrecision
+  percentage       Float             @db.DoublePrecision
+  passed           Boolean
+  timeTakenSeconds Int               @map("time_taken_seconds")
+  gradingStatus    QuizAttemptStatus @map("grading_status")
+  startedAt        DateTime          @map("started_at") @db.Timestamptz
+  submittedAt      DateTime          @map("submitted_at") @db.Timestamptz
+  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz
+
+  attempt    QuizAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  quiz       Quiz        @relation(fields: [quizId], references: [id])
+  enrollment Enrollment  @relation(fields: [enrollmentId], references: [id])
+
+  @@index([quizId, submittedAt])
+  @@index([enrollmentId])
+  @@map("quiz_results")
+}
+
 model Assignment {
-  id             String           @id @default(uuid()) @db.Uuid
-  organizationId String           @map("organization_id") @db.Uuid
-  instructorId   String           @map("instructor_id") @db.Uuid
-  courseId       String           @map("course_id") @db.Uuid
-  title          String           @db.VarChar(500)
-  type           String           @db.VarChar(50)
-  instructions   String?          @db.Text
-  dueAt          DateTime?        @map("due_at") @db.Timestamptz
-  maxScore       Int              @default(100) @map("max_score")
-  allowLate      Boolean          @default(false) @map("allow_late")
-  status         AssignmentStatus @default(draft)
-  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt      DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+  id                String               @id @default(uuid()) @db.Uuid
+  organizationId    String               @map("organization_id") @db.Uuid
+  instructorId      String               @map("instructor_id") @db.Uuid
+  courseId          String               @map("course_id") @db.Uuid
+  moduleId          String?              @map("module_id") @db.Uuid
+  lessonId          String?              @map("lesson_id") @db.Uuid
+  title             String               @db.VarChar(500)
+  type              String               @db.VarChar(50)
+  instructions      String?              @db.Text
+  dueAt             DateTime?            @map("due_at") @db.Timestamptz
+  maxScore          Int                  @default(100) @map("max_score")
+  allowLate         Boolean              @default(false) @map("allow_late")
+  latePenaltyPct    Int?                 @map("late_penalty_pct")
+  allowResubmission Boolean              @default(false) @map("allow_resubmission")
+  allowedFileTypes  String[]             @default([]) @map("allowed_file_types")
+  maxFileSizeBytes  Int                  @default(10485760) @map("max_file_size_bytes")
+  visibility        AssignmentVisibility @default(enrolled)
+  status            AssignmentStatus     @default(draft)
+  publishedAt       DateTime?            @map("published_at") @db.Timestamptz
+  createdAt         DateTime             @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime             @updatedAt @map("updated_at") @db.Timestamptz
 
   organization Organization           @relation(fields: [organizationId], references: [id])
   instructor   User                   @relation("AssignmentInstructor", fields: [instructorId], references: [id])
   course       Course                 @relation(fields: [courseId], references: [id])
+  module       CourseModule?          @relation(fields: [moduleId], references: [id], onDelete: SetNull)
+  lesson       CourseLesson?          @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+  attachments  AssignmentAttachment[]
   submissions  AssignmentSubmission[]
 
   @@index([courseId, status])
+  @@index([instructorId, status])
+  @@index([moduleId])
+  @@index([lessonId])
   @@map("assignments")
+}
+
+model AssignmentAttachment {
+  id           String   @id @default(uuid()) @db.Uuid
+  assignmentId String   @map("assignment_id") @db.Uuid
+  storageKey   String   @map("storage_key") @db.VarChar(512)
+  filename     String   @db.VarChar(255)
+  mimeType     String   @map("mime_type") @db.VarChar(128)
+  sizeBytes    Int      @map("size_bytes")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+
+  @@index([assignmentId])
+  @@map("assignment_attachments")
 }
 
 model AssignmentSubmission {
@@ -625,29 +1272,56 @@ model AssignmentSubmission {
   score        Int?
   feedback     String?          @db.Text
   gradedBy     String?          @map("graded_by") @db.Uuid
+  attemptCount Int              @default(0) @map("attempt_count")
   submittedAt  DateTime?        @map("submitted_at") @db.Timestamptz
   gradedAt     DateTime?        @map("graded_at") @db.Timestamptz
+  returnedAt   DateTime?        @map("returned_at") @db.Timestamptz
   createdAt    DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime         @updatedAt @map("updated_at") @db.Timestamptz
 
-  assignment Assignment        @relation(fields: [assignmentId], references: [id])
-  enrollment Enrollment        @relation(fields: [enrollmentId], references: [id])
-  files      SubmissionFile[]
+  assignment Assignment             @relation(fields: [assignmentId], references: [id])
+  enrollment Enrollment             @relation(fields: [enrollmentId], references: [id])
+  grader     User?                  @relation("SubmissionGrader", fields: [gradedBy], references: [id])
+  files      SubmissionAttachment[]
+  grades     AssignmentGrade[]
 
   @@unique([assignmentId, enrollmentId])
+  @@index([assignmentId, status])
   @@map("assignment_submissions")
 }
 
-model SubmissionFile {
-  id           String @id @default(uuid()) @db.Uuid
-  submissionId String @map("submission_id") @db.Uuid
-  storageKey   String @map("storage_key") @db.VarChar(512)
-  filename     String @db.VarChar(255)
-  mimeType     String @map("mime_type") @db.VarChar(128)
-  sizeBytes    Int    @map("size_bytes")
+model SubmissionAttachment {
+  id            String  @id @default(uuid()) @db.Uuid
+  submissionId  String  @map("submission_id") @db.Uuid
+  storageKey    String  @map("storage_key") @db.VarChar(512)
+  filename      String  @db.VarChar(255)
+  mimeType      String  @map("mime_type") @db.VarChar(128)
+  sizeBytes     Int     @map("size_bytes")
+  attemptNumber Int     @default(1) @map("attempt_number")
+  isActive      Boolean @default(true) @map("is_active")
+  uploadedAt    DateTime @default(now()) @map("uploaded_at") @db.Timestamptz
 
   submission AssignmentSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
 
+  @@index([submissionId, isActive])
   @@map("submission_files")
+}
+
+model AssignmentGrade {
+  id           String   @id @default(uuid()) @db.Uuid
+  submissionId String   @map("submission_id") @db.Uuid
+  graderId     String   @map("grader_id") @db.Uuid
+  score        Int
+  maxScore     Int      @map("max_score")
+  feedback     String?  @db.Text
+  returned     Boolean  @default(false)
+  gradedAt     DateTime @default(now()) @map("graded_at") @db.Timestamptz
+
+  submission AssignmentSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  grader     User                 @relation("AssignmentGradeGrader", fields: [graderId], references: [id])
+
+  @@index([submissionId, gradedAt])
+  @@map("assignment_grades")
 }
 
 // ─── Communications ───────────────────────────────────────────────────────────
@@ -773,18 +1447,103 @@ model CoachingSession {
 
 // ─── Certificates & leads ─────────────────────────────────────────────────────
 
+model CertificateTemplate {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  name           String   @db.VarChar(255)
+  slug           String   @db.VarChar(100)
+  description    String?  @db.Text
+  isDefault      Boolean  @default(false) @map("is_default")
+  design         Json     @default("{}")
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  certificates Certificate[]
+
+  @@unique([organizationId, slug])
+  @@index([organizationId, active])
+  @@map("certificate_templates")
+}
+
+model CertificateCompletionRule {
+  id                          String   @id @default(uuid()) @db.Uuid
+  courseId                    String   @unique @map("course_id") @db.Uuid
+  requireProgressPct          Int      @default(100) @map("require_progress_pct")
+  requireAllLessons           Boolean  @default(true) @map("require_all_lessons")
+  requireAssignmentsSubmitted Boolean  @default(false) @map("require_assignments_submitted")
+  minAssignmentScorePct       Int?     @map("min_assignment_score_pct")
+  requireQuizPass             Boolean  @default(false) @map("require_quiz_pass")
+  minQuizPassPct              Int      @default(70) @map("min_quiz_pass_pct")
+  requireLiveSessions         Boolean  @default(false) @map("require_live_sessions")
+  createdAt                   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@map("certificate_completion_rules")
+}
+
 model Certificate {
-  id           String   @id @default(uuid()) @db.Uuid
-  enrollmentId String   @map("enrollment_id") @db.Uuid
-  credentialId String   @unique @map("credential_id") @db.VarChar(100)
-  title        String   @db.VarChar(500)
-  skills       String[] @default([])
-  pdfStorageKey String? @map("pdf_storage_key") @db.VarChar(512)
-  issuedAt     DateTime @default(now()) @map("issued_at") @db.Timestamptz
+  id                String            @id @default(uuid()) @db.Uuid
+  organizationId    String            @map("organization_id") @db.Uuid
+  enrollmentId      String            @map("enrollment_id") @db.Uuid
+  courseId          String            @map("course_id") @db.Uuid
+  studentId         String            @map("student_id") @db.Uuid
+  templateId        String?           @map("template_id") @db.Uuid
+  credentialId      String            @unique @map("credential_id") @db.VarChar(100)
+  certificateNumber String            @unique @map("certificate_number") @db.VarChar(100)
+  title             String            @db.VarChar(500)
+  studentName       String            @map("student_name") @db.VarChar(255)
+  instructorName    String            @map("instructor_name") @db.VarChar(255)
+  skills            String[]          @default([])
+  status            CertificateStatus @default(active)
+  completionDate    DateTime          @map("completion_date") @db.Timestamptz
+  issuedAt          DateTime          @default(now()) @map("issued_at") @db.Timestamptz
+  expiresAt         DateTime?         @map("expires_at") @db.Timestamptz
+  verificationUrl   String            @map("verification_url") @db.VarChar(512)
+  pdfStorageKey     String?           @map("pdf_storage_key") @db.VarChar(512)
+  metadata          Json              @default("{}")
+  revokedAt         DateTime?         @map("revoked_at") @db.Timestamptz
+  revokedById       String?           @map("revoked_by_id") @db.Uuid
+  revokeReason      String?           @map("revoke_reason") @db.Text
+  reissuedFromId    String?           @map("reissued_from_id") @db.Uuid
+  issuedById        String?           @map("issued_by_id") @db.Uuid
+  createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime          @updatedAt @map("updated_at") @db.Timestamptz
 
-  enrollment Enrollment @relation(fields: [enrollmentId], references: [id])
+  organization  Organization            @relation(fields: [organizationId], references: [id])
+  enrollment    Enrollment              @relation(fields: [enrollmentId], references: [id])
+  course        Course                  @relation(fields: [courseId], references: [id])
+  student       User                    @relation("StudentCertificates", fields: [studentId], references: [id])
+  template      CertificateTemplate?    @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  reissuedFrom  Certificate?            @relation("CertificateReissue", fields: [reissuedFromId], references: [id], onDelete: SetNull)
+  reissues      Certificate[]           @relation("CertificateReissue")
+  revokedBy     User?                   @relation("RevokedCertificates", fields: [revokedById], references: [id], onDelete: SetNull)
+  issuedBy      User?                   @relation("IssuedCertificates", fields: [issuedById], references: [id], onDelete: SetNull)
+  verifications CertificateVerification[]
 
+  @@index([studentId, status])
+  @@index([courseId, status])
+  @@index([enrollmentId])
   @@map("certificates")
+}
+
+model CertificateVerification {
+  id            String                        @id @default(uuid()) @db.Uuid
+  certificateId String?                       @map("certificate_id") @db.Uuid
+  credentialId  String                        @map("credential_id") @db.VarChar(100)
+  result        CertificateVerificationResult
+  ipAddress     String?                       @map("ip_address") @db.VarChar(45)
+  userAgent     String?                       @map("user_agent") @db.VarChar(512)
+  verifiedAt    DateTime                      @default(now()) @map("verified_at") @db.Timestamptz
+
+  certificate Certificate? @relation(fields: [certificateId], references: [id], onDelete: SetNull)
+
+  @@index([credentialId])
+  @@index([certificateId])
+  @@map("certificate_verifications")
 }
 
 model DemoLead {
@@ -797,4 +1556,42 @@ model DemoLead {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   @@map("demo_leads")
+}
+
+// ─── Media & object storage ───────────────────────────────────────────────────
+
+model MediaAsset {
+  id             String          @id @default(uuid()) @db.Uuid
+  organizationId String          @map("organization_id") @db.Uuid
+  ownerId        String          @map("owner_id") @db.Uuid
+  assetType      MediaAssetType  @map("asset_type")
+  visibility     MediaVisibility @default(private)
+  storageKey     String          @map("storage_key") @db.VarChar(512)
+  filename       String          @db.VarChar(255)
+  mimeType       String          @map("mime_type") @db.VarChar(128)
+  sizeBytes      Int             @map("size_bytes")
+  width          Int?
+  height         Int?
+  variants       Json            @default("{}")
+  metadata       Json            @default("{}")
+  courseId       String?         @map("course_id") @db.Uuid
+  batchId        String?         @map("batch_id") @db.Uuid
+  lessonId       String?         @map("lesson_id") @db.Uuid
+  deletedAt      DateTime?       @map("deleted_at") @db.Timestamptz
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime        @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  owner        User         @relation(fields: [ownerId], references: [id])
+  course       Course?      @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  batch        Batch?       @relation(fields: [batchId], references: [id], onDelete: SetNull)
+  lesson       CourseLesson? @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, assetType])
+  @@index([ownerId, createdAt])
+  @@index([courseId])
+  @@index([batchId])
+  @@index([lessonId])
+  @@index([deletedAt])
+  @@map("media_assets")
 }

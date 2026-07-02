@@ -1,12 +1,29 @@
-import { useStudentDashboard } from '../../../hooks/useStudentDashboard'
-import { certificateTimeline } from '../../../data/studentData'
+import { useEffect, useMemo, useState } from 'react'
+import { fetchMyCertificates, type CertificateRecord } from '../../../lib/api/certificates'
 import { AchievementTimeline, CertificateCard } from '../../../components/student/CertificateCard'
 import { PageIntro, EmptyState, Panel } from '../../../components/student/Panel'
 import { Button } from '../../../components/ui/Button'
 
 export function StudentCertificatesPage() {
-  const { workspace } = useStudentDashboard()
-  const earnedCertificates = workspace?.certificates ?? []
+  const [certificates, setCertificates] = useState<CertificateRecord[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    void fetchMyCertificates()
+      .then(setCertificates)
+      .catch(() => setCertificates([]))
+      .finally(() => setLoading(false))
+  }, [])
+
+  const timeline = useMemo(
+    () =>
+      certificates.map((c) => ({
+        date: c.issuedDate,
+        event: `${c.courseTitle} certificate earned`,
+        type: 'certificate' as const,
+      })),
+    [certificates],
+  )
 
   return (
     <div className="animate-rise">
@@ -16,15 +33,17 @@ export function StudentCertificatesPage() {
         description="Credentials you've earned through guided learning — download, verify, and share your accomplishments."
       />
 
-      {earnedCertificates.length > 0 ? (
+      {loading ? (
+        <p className="text-sm text-ink-3 py-12 text-center">Loading certificates…</p>
+      ) : certificates.length > 0 ? (
         <div className="grid gap-6 lg:grid-cols-5">
           <div className="lg:col-span-3 space-y-4">
-            {earnedCertificates.map((cert) => (
+            {certificates.map((cert) => (
               <CertificateCard key={cert.id} certificate={cert} />
             ))}
           </div>
           <Panel title="Achievement timeline" className="lg:col-span-2">
-            <AchievementTimeline events={certificateTimeline} />
+            <AchievementTimeline events={timeline} />
           </Panel>
         </div>
       ) : (
