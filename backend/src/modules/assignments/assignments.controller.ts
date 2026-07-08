@@ -20,9 +20,11 @@ import {
 } from '@nestjs/common'
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express'
 import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger'
+import { Throttle } from '@nestjs/throttler'
 import { UserRole } from '@prisma/client'
 import type { Response } from 'express'
 import { CurrentUser, JwtPayload, Roles } from '../../common/decorators/auth.decorator'
+import { ThrottleLimits } from '../../config/throttle.constants'
 import {
   CreateAssignmentDto,
   GradeSubmissionDto,
@@ -34,6 +36,7 @@ import {
 } from '../../common/dto/assignment.dto'
 import { ApiMessageDto } from '../../common/dto/auth.dto'
 import { JwtAuthGuard, RolesGuard } from '../../common/guards/auth.guards'
+import { multerMemoryOptions } from '../../common/multer-options'
 import { AssignmentsService } from './assignments.service'
 
 @ApiTags('assignments')
@@ -111,7 +114,8 @@ export class AssignmentsController {
   @Post(':id/attachments')
   @Roles(UserRole.instructor)
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', multerMemoryOptions))
+  @Throttle({ default: ThrottleLimits.upload })
   @ApiOperation({ summary: 'Upload instructor resource attachment' })
   uploadAttachment(
     @Param('id') id: string,
@@ -245,7 +249,8 @@ export class AssignmentsController {
   @Post(':id/submissions')
   @Roles(UserRole.student)
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FilesInterceptor('files', 10))
+  @UseInterceptors(FilesInterceptor('files', 10, multerMemoryOptions))
+  @Throttle({ default: ThrottleLimits.upload })
   @ApiOperation({ summary: 'Submit assignment (first submission)' })
   submit(
     @Param('id') id: string,
@@ -259,7 +264,8 @@ export class AssignmentsController {
   @Put(':id/submissions')
   @Roles(UserRole.student)
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FilesInterceptor('files', 10))
+  @UseInterceptors(FilesInterceptor('files', 10, multerMemoryOptions))
+  @Throttle({ default: ThrottleLimits.upload })
   @ApiOperation({ summary: 'Replace submission (when resubmission allowed)' })
   replaceSubmission(
     @Param('id') id: string,

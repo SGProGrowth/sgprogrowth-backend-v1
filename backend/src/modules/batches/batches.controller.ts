@@ -15,10 +15,13 @@ import {
   UseInterceptors,
 } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
-import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger'
+import { ApiBearerAuth, ApiConsumes, ApiTags } from '@nestjs/swagger'
+import { Throttle } from '@nestjs/throttler'
 import { UserRole } from '@prisma/client'
 import type { Response } from 'express'
 import { CurrentUser, JwtPayload, Roles } from '../../common/decorators/auth.decorator'
+import { validateCsvImportFile } from '../../common/import-file.validation'
+import { ThrottleLimits } from '../../config/throttle.constants'
 import {
   AddBatchStudentDto,
   AssignBatchInstructorDto,
@@ -31,6 +34,7 @@ import {
   UpdateBatchDto,
 } from '../../common/dto/batch.dto'
 import { JwtAuthGuard, RolesGuard } from '../../common/guards/auth.guards'
+import { multerMemoryOptions } from '../../common/multer-options'
 import { BatchImportService } from './batch-import.service'
 import { BatchesService } from './batches.service'
 
@@ -68,13 +72,15 @@ export class BatchesController {
   @Post('import/preview')
   @Roles(UserRole.instructor)
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', multerMemoryOptions))
+  @Throttle({ default: ThrottleLimits.upload })
   previewImport(
     @CurrentUser() user: JwtPayload,
     @UploadedFile() file: Express.Multer.File,
     @Body() dto: BatchImportPreviewDto,
   ) {
     if (!file) throw new BadRequestException('file required')
+    validateCsvImportFile(file)
     return this.batchImportService.previewImport(user.sub, file, dto)
   }
 

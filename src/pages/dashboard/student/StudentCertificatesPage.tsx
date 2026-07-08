@@ -1,19 +1,34 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { fetchMyCertificates, type CertificateRecord } from '../../../lib/api/certificates'
 import { AchievementTimeline, CertificateCard } from '../../../components/student/CertificateCard'
 import { PageIntro, EmptyState, Panel } from '../../../components/student/Panel'
 import { Button } from '../../../components/ui/Button'
+import { LoadingState } from '../../../components/ui/LoadingState'
+import { RequestError } from '../../../components/ui/RequestError'
+import { getFriendlyErrorMessage } from '../../../lib/api/errors'
 
 export function StudentCertificatesPage() {
   const [certificates, setCertificates] = useState<CertificateRecord[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const rows = await fetchMyCertificates()
+      setCertificates(rows)
+    } catch (err) {
+      setCertificates([])
+      setError(getFriendlyErrorMessage(err, 'Unable to load certificates.'))
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
   useEffect(() => {
-    void fetchMyCertificates()
-      .then(setCertificates)
-      .catch(() => setCertificates([]))
-      .finally(() => setLoading(false))
-  }, [])
+    void load()
+  }, [load])
 
   const timeline = useMemo(
     () =>
@@ -34,7 +49,9 @@ export function StudentCertificatesPage() {
       />
 
       {loading ? (
-        <p className="text-sm text-ink-3 py-12 text-center">Loading certificates…</p>
+        <LoadingState label="Loading certificates…" />
+      ) : error ? (
+        <RequestError title="Unable to load certificates" message={error} onRetry={() => void load()} />
       ) : certificates.length > 0 ? (
         <div className="grid gap-6 lg:grid-cols-5">
           <div className="lg:col-span-3 space-y-4">

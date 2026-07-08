@@ -11,6 +11,7 @@ import { MediaListQueryDto } from '../../common/dto/media.dto'
 import { PrismaService } from '../../prisma/prisma.module'
 import { StorageService } from '../storage/storage.service'
 import { ImageProcessorService } from './image-processor.service'
+import { multerMemoryOptions, sanitizeUploadFilename } from '../../common/multer-options'
 import { validateMediaFile } from './media-validation'
 
 @Injectable()
@@ -89,7 +90,7 @@ export class MediaService {
 
     const orgId = await this.defaultOrgId()
     let courseId: string | undefined
-    let batchId = opts?.batchId
+    const batchId = opts?.batchId
 
     if (opts?.courseSlug) {
       const course = await this.prisma.course.findUnique({
@@ -98,6 +99,12 @@ export class MediaService {
       if (!course) throw new NotFoundException('Course not found')
       if (role === UserRole.instructor && course.instructorId !== userId) {
         throw new ForbiddenException('Course access denied')
+      }
+      if (role === UserRole.student) {
+        const enrolled = await this.prisma.enrollment.findFirst({
+          where: { studentId: userId, courseId: course.id, status: { not: 'withdrawn' } },
+        })
+        if (!enrolled) throw new ForbiddenException('Enrollment required to attach media to this course')
       }
       courseId = course.id
     }
@@ -135,7 +142,8 @@ export class MediaService {
         : MediaVisibility.private)
 
     const prefix = `media/${assetType}`
-    const storageKey = this.storage.buildKey(prefix, file.originalname)
+    const safeName = sanitizeUploadFilename(file.originalname)
+    const storageKey = this.storage.buildKey(prefix, safeName)
     await this.storage.saveBuffer(storageKey, file.buffer, {
       contentType: file.mimetype,
       visibility: visibility === MediaVisibility.public ? 'public' : 'private',

@@ -8,11 +8,11 @@ import {
   S3Client,
 } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
-import { Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common'
+import { BadRequestException, Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { createReadStream, createWriteStream, existsSync, mkdirSync } from 'fs'
 import { unlink } from 'fs/promises'
-import { dirname, join } from 'path'
+import { dirname, join, resolve, sep } from 'path'
 import { randomUUID } from 'crypto'
 import { Readable } from 'stream'
 import { pipeline } from 'stream/promises'
@@ -84,11 +84,20 @@ export class StorageService implements OnModuleInit {
 
   buildKey(prefix: string, filename: string): string {
     const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 200)
-    return `${prefix}/${randomUUID()}-${safeName}`
+    const safePrefix = prefix.replace(/[^a-zA-Z0-9/_-]/g, '_').replace(/\.\./g, '_')
+    return `${safePrefix}/${randomUUID()}-${safeName}`
   }
 
   absolutePath(storageKey: string): string {
-    return join(this.uploadRoot, storageKey)
+    if (!storageKey || storageKey.includes('..') || storageKey.startsWith('/')) {
+      throw new BadRequestException('Invalid storage key')
+    }
+    const root = resolve(this.uploadRoot)
+    const target = resolve(root, storageKey)
+    if (target !== root && !target.startsWith(root + sep)) {
+      throw new BadRequestException('Invalid storage path')
+    }
+    return target
   }
 
   async saveBuffer(storageKey: string, buffer: Buffer, options?: SaveOptions): Promise<void> {
@@ -109,6 +118,15 @@ export class StorageService implements OnModuleInit {
     const dir = dirname(target)
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
     await pipeline(Readable.from(buffer), createWriteStream(target))
+  }
+
+  async readBuffer(storageKey: string): Promise<Buffer> {
+    const stream = await this.openReadStream(storageKey)
+    const chunks: Buffer[] = []
+    for await (const chunk of stream) {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
+    }
+    return Buffer.concat(chunks)
   }
 
   async openReadStream(storageKey: string): Promise<Readable> {

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useStudentDashboard } from '../../../hooks/useStudentDashboard'
+import { useStudentDashboard } from '../../../contexts/DashboardWorkspaceContext'
 import { EnrolledCourseCard, RecommendedCourseCard } from '../../../components/student/CourseCards'
 import { PageIntro, TabBar, EmptyState } from '../../../components/student/Panel'
 import { Button } from '../../../components/ui/Button'

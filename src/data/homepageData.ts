@@ -87,7 +87,7 @@ export const navItems: NavItem[] = [
     href: '/#enterprise',
     children: [
       { label: 'Enterprise Solutions', href: '/#enterprise', description: 'Team upskilling programs' },
-      { label: 'Request Demo', href: '/#contact', description: 'Schedule a consultation' },
+      { label: 'Book consultation', href: '/#contact', description: 'Schedule a coaching session' },
     ],
   },
   {
@@ -221,7 +221,7 @@ export const featuredCourses: Course[] = [
     trending: true,
   },
   {
-    id: 'demo-course',
+    id: 'career-discovery-coaching',
     title: 'Career Discovery & Coaching Session',
     instructor: 'Career Coaching Team · SG Pro Growth',
     instructorUrl: 'https://sgprogrowth.com/members-directory/',

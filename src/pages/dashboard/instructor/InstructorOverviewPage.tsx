@@ -1,12 +1,17 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import { getGreeting } from '../../../data/instructorData'
+import { getGreeting } from '../../../lib/greeting'
 import { useInstructorDashboard } from '../../../hooks/useInstructorDashboard'
-import { PageIntro, Panel, StatTile } from '../../../components/dashboard/PageShell'
+import { PageIntro, Panel, StatTile, EmptyState } from '../../../components/dashboard/PageShell'
 import { InstructorCourseRow } from '../../../components/instructor/CourseCard'
 import { StatusBadge } from '../../../components/instructor/StatusBadge'
 import { Button } from '../../../components/ui/Button'
 import { Pagination, usePagination } from '../../../components/ui/Pagination'
+import { LoadingState } from '../../../components/ui/LoadingState'
+import { AlertBanner } from '../../../components/ui/AlertBanner'
+import { getFriendlyErrorMessage } from '../../../lib/api/errors'
+import { fetchMyInstructorCourses } from '../../../lib/api/courses'
+import type { InstructorCourse } from '../../../data/instructorData'
 
 export function InstructorOverviewPage() {
   const { user, workspace } = useInstructorDashboard()
@@ -20,7 +25,7 @@ export function InstructorOverviewPage() {
 
   return (
     <div className="animate-rise space-y-8">
-      <header className="rounded-2xl border border-stone-200 bg-white px-6 py-8 md:px-8">
+      <header className="rounded-2xl border border-stone-200 bg-white px-6 py-8 md:px-8 shadow-[0_1px_2px_rgba(10,10,10,0.04)]">
         <p className="text-label mb-2">Instructor dashboard</p>
         <h1 className="text-display-lg text-ink">{getGreeting()}, {firstName}</h1>
         <p className="mt-3 max-w-2xl text-body-lg">
@@ -30,8 +35,7 @@ export function InstructorOverviewPage() {
         </p>
         <div className="mt-6 flex flex-wrap gap-3">
           <Button to="/instructor/courses/new" variant="primary" size="md">Create new course</Button>
-          <Button to="/instructor/coaching" variant="secondary" size="md">Schedule session</Button>
-          <Button to="/instructor/grades" variant="ghost" size="md">Review grades ({summary.pendingGrades})</Button>
+          <Button to="/instructor/assignments" variant="secondary" size="md">Review grades ({summary.pendingGrades})</Button>
         </div>
       </header>
 
@@ -43,39 +47,63 @@ export function InstructorOverviewPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-5">
-        <Panel title="Your courses" className="lg:col-span-3" action={<Link to="/instructor/courses" className="text-sm font-semibold text-forest-800">Manage all</Link>}>
-          <div className="space-y-4">
-            {recentCourses.map((c) => (
-              <InstructorCourseRow key={c.id} course={c} />
-            ))}
-          </div>
+        <Panel title="Your courses" className="lg:col-span-3" action={<Link to="/instructor/courses" className="text-sm font-semibold text-forest-800 hover:text-forest-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest-600 focus-visible:ring-offset-2 rounded-md">Manage all</Link>}>
+          {recentCourses.length > 0 ? (
+            <div className="space-y-4">
+              {recentCourses.map((c) => (
+                <InstructorCourseRow key={c.id} course={c} />
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              title="No courses yet"
+              description="Create your first course to start teaching and tracking student progress."
+              action={<Button to="/instructor/courses/new" variant="primary" size="sm">Create course</Button>}
+            />
+          )}
         </Panel>
 
-        <Panel title="Upcoming sessions" className="lg:col-span-2" action={<Link to="/instructor/coaching" className="text-sm font-semibold text-forest-800">View all</Link>}>
-          <ul className="divide-y divide-stone-100">
-            {upcomingSessions.map((s) => (
-              <li key={s.id} className="py-3 first:pt-0 last:pb-0">
-                <p className="text-sm font-semibold text-ink">{s.title}</p>
-                <p className="text-xs text-ink-3 mt-0.5">{s.studentName ?? 'Group'} · {s.date} · {s.time}</p>
-                <StatusBadge status="scheduled" />
-              </li>
-            ))}
-          </ul>
+        <Panel title="Upcoming sessions" className="lg:col-span-2" action={upcomingSessions.length > 0 ? <Link to="/instructor/calendar" className="text-sm font-semibold text-forest-800 hover:text-forest-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest-600 focus-visible:ring-offset-2 rounded-md">View calendar</Link> : undefined}>
+          {upcomingSessions.length > 0 ? (
+            <ul className="divide-y divide-stone-100">
+              {upcomingSessions.map((s) => (
+                <li key={s.id} className="py-3 first:pt-0 last:pb-0">
+                  <p className="text-sm font-semibold text-ink">{s.title}</p>
+                  <p className="text-xs text-ink-3 mt-0.5">{s.studentName ?? 'Group'} · {s.date} · {s.time}</p>
+                  <StatusBadge status="scheduled" />
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <EmptyState
+              icon="calendar"
+              title="No upcoming sessions"
+              description="Scheduled coaching sessions will appear here."
+            />
+          )}
         </Panel>
       </div>
 
-      <Panel title="Recent activity" action={<Link to="/instructor/notifications" className="text-sm font-semibold text-forest-800">All notifications</Link>}>
-        <ul className="divide-y divide-stone-100">
-          {recentNotifs.map((n) => (
-            <li key={n.id} className="flex items-start gap-3 py-3 first:pt-0">
-              {!n.read && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-forest-600" />}
-              <div className={n.read ? 'pl-5' : ''}>
-                <p className="text-sm font-medium text-ink">{n.title}</p>
-                <p className="text-xs text-ink-3">{n.message} · {n.time}</p>
-              </div>
-            </li>
-          ))}
-        </ul>
+      <Panel title="Recent activity" action={<Link to="/instructor/notifications" className="text-sm font-semibold text-forest-800 hover:text-forest-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest-600 focus-visible:ring-offset-2 rounded-md">All notifications</Link>}>
+        {recentNotifs.length > 0 ? (
+          <ul className="divide-y divide-stone-100">
+            {recentNotifs.map((n) => (
+              <li key={n.id} className="flex items-start gap-3 py-3 first:pt-0">
+                {!n.read && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-forest-600" aria-hidden="true" />}
+                <div className={n.read ? 'pl-5' : ''}>
+                  <p className="text-sm font-medium text-ink">{n.title}</p>
+                  <p className="text-xs text-ink-3">{n.message} · {n.time}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <EmptyState
+            icon="bell"
+            title="No recent activity"
+            description="Enrollments, submissions, and session updates will show up here."
+          />
+        )}
       </Panel>
     </div>
   )
@@ -83,11 +111,40 @@ export function InstructorOverviewPage() {
 
 export function InstructorCoursesPage() {
   const { workspace } = useInstructorDashboard()
-  const courses = workspace?.courses ?? []
+  const [courses, setCourses] = useState<InstructorCourse[]>(workspace?.courses ?? [])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState<'all' | 'published' | 'draft'>('all')
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(1)
   const pageSize = 8
+
+  const loadCourses = useCallback(() => {
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+    fetchMyInstructorCourses({ page: 1, pageSize: 100 })
+      .then((res) => {
+        if (!cancelled) setCourses(res.data)
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setCourses(workspace?.courses ?? [])
+          setError(getFriendlyErrorMessage(err, 'Unable to refresh courses.'))
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [workspace?.courses])
+
+  useEffect(() => {
+    const cleanup = loadCourses()
+    return cleanup
+  }, [loadCourses])
 
   const filtered = useMemo(() => {
     let list = courses.filter((c) => filter === 'all' || c.status === filter)
@@ -116,7 +173,7 @@ export function InstructorCoursesPage() {
               key={f}
               type="button"
               onClick={() => { setFilter(f); setPage(1) }}
-              className={`rounded-md px-4 py-2 text-sm font-semibold capitalize transition-colors ${
+              className={`rounded-md px-4 py-2 text-sm font-semibold capitalize transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest-600 focus-visible:ring-offset-2 ${
                 filter === f ? 'bg-forest-800 text-white' : 'bg-white border border-stone-200 text-ink-2 hover:bg-stone-50'
               }`}
             >
@@ -139,11 +196,23 @@ export function InstructorCoursesPage() {
         </div>
       </div>
 
-      {filtered.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-stone-300 bg-stone-50/50 px-6 py-16 text-center">
-          <p className="font-display text-base font-bold text-ink">No courses found</p>
-          <p className="mt-1 text-sm text-ink-3">Adjust filters or create a new course to get started.</p>
-        </div>
+      {error && (
+        <AlertBanner variant="warning" className="mb-6">
+          {error}
+          <button type="button" className="action-link ml-2 inline-flex" onClick={() => { loadCourses() }}>
+            Try again
+          </button>
+        </AlertBanner>
+      )}
+
+      {loading ? (
+        <LoadingState label="Loading your courses…" />
+      ) : filtered.length === 0 ? (
+        <EmptyState
+          title="No courses found"
+          description="Adjust filters or create a new course to get started."
+          action={<Button to="/instructor/courses/new" variant="primary" size="md">Create new course</Button>}
+        />
       ) : (
         <>
           <div className="space-y-4">

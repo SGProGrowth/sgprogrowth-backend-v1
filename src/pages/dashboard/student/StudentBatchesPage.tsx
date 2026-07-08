@@ -1,8 +1,7 @@
 import { useState } from 'react'
-import { useStudentDashboard } from '../../../hooks/useStudentDashboard'
-import { PageIntro, Panel, StatTile, TabBar, EmptyState } from '../../../components/student/Panel'
+import { useStudentDashboard } from '../../../contexts/DashboardWorkspaceContext'
+import { PageIntro, StatTile, TabBar, EmptyState } from '../../../components/student/Panel'
 import { ProgressBar } from '../../../components/student/ProgressBar'
-import { Button } from '../../../components/ui/Button'
 
 export function StudentBatchesPage() {
   const { workspace } = useStudentDashboard()
@@ -115,42 +114,11 @@ export function StudentBatchesPage() {
                     </div>
                   </div>
                 )}
-
-                <div className="flex gap-2 pt-1">
-                  {batch.status === 'active' && (
-                    <>
-                      <Button variant="primary" size="sm">View schedule</Button>
-                      <Button variant="secondary" size="sm">Message batch</Button>
-                    </>
-                  )}
-                  {batch.status === 'upcoming' && (
-                    <Button variant="secondary" size="sm">View orientation details</Button>
-                  )}
-                </div>
               </div>
             </article>
           ))}
         </div>
       )}
-
-      <Panel title="Batch resources" className="mt-8">
-        <div className="grid gap-4 sm:grid-cols-3">
-          {[
-            { title: 'Cohort handbook', desc: 'Rules, expectations, and communication guidelines' },
-            { title: 'Shared drive', desc: 'Batch documents, templates, and group projects' },
-            { title: 'Discussion forum', desc: 'Ask questions and collaborate with batchmates' },
-          ].map((r) => (
-            <button
-              key={r.title}
-              type="button"
-              className="rounded-lg border border-stone-200 p-4 text-left hover:border-forest-300 hover:bg-forest-50/30 transition-colors"
-            >
-              <p className="font-semibold text-ink text-sm">{r.title}</p>
-              <p className="text-xs text-ink-3 mt-1">{r.desc}</p>
-            </button>
-          ))}
-        </div>
-      </Panel>
     </div>
   )
 }

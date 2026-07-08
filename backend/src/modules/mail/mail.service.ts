@@ -10,12 +10,17 @@ export interface SendMailOptions {
   text?: string
 }
 
+export interface SendMailResult {
+  previewUrl?: string
+}
+
 @Injectable()
 export class MailService implements OnModuleInit {
   private readonly logger = new Logger(MailService.name)
   private transporter: Transporter | null = null
   private readonly enabled: boolean
   private readonly from: string
+  private usingEthereal = false
 
   constructor(private config: ConfigService) {
     this.enabled = this.config.get<string>('MAIL_ENABLED') !== 'false'
@@ -28,48 +33,92 @@ export class MailService implements OnModuleInit {
       return
     }
 
+    await this.initTransporter()
+  }
+
+  private async initTransporter(): Promise<void> {
+    const smtpUrl = this.config.get<string>('SMTP_URL')
+    if (smtpUrl) {
+      this.transporter = nodemailer.createTransport(smtpUrl)
+      await this.verifyTransporter('SMTP_URL')
+      return
+    }
+
     const host = this.config.get<string>('SMTP_HOST')
     const port = Number(this.config.get<string>('SMTP_PORT') ?? 587)
     const secure = this.config.get<string>('SMTP_SECURE') === 'true'
     const user = this.config.get<string>('SMTP_USER')
     const pass = this.config.get<string>('SMTP_PASS')
 
-    if (!host || !user || !pass) {
-      this.logger.warn('SMTP not fully configured — emails will be logged to console')
+    if (host && user && pass) {
+      this.transporter = nodemailer.createTransport({
+        host,
+        port,
+        secure,
+        auth: { user, pass },
+        requireTLS: !secure && port === 587,
+        tls: { minVersion: 'TLSv1.2' },
+      })
+      await this.verifyTransporter(`${host}:${port}`)
       return
     }
 
-    this.transporter = nodemailer.createTransport({ host, port, secure, auth: { user, pass } })
+    const useEthereal =
+      this.config.get<string>('SMTP_USE_ETHEREAL') === 'true' &&
+      this.config.get<string>('NODE_ENV') !== 'production'
 
+    if (useEthereal) {
+      try {
+        const testAccount = await nodemailer.createTestAccount()
+        this.transporter = nodemailer.createTransport({
+          host: testAccount.smtp.host,
+          port: testAccount.smtp.port,
+          secure: testAccount.smtp.secure,
+          auth: { user: testAccount.user, pass: testAccount.pass },
+        })
+        this.usingEthereal = true
+        this.logger.log(
+          `SMTP using Ethereal test inbox (${testAccount.user}) — preview URLs logged after each send`,
+        )
+        return
+      } catch (err) {
+        this.logger.warn(
+          `Ethereal SMTP setup failed: ${err instanceof Error ? err.message : err}`,
+        )
+      }
+    }
+
+    this.logger.warn(
+      'SMTP not configured — set SMTP_HOST/SMTP_USER/SMTP_PASS or SMTP_URL (or SMTP_USE_ETHEREAL=true for local dev)',
+    )
+  }
+
+  private async verifyTransporter(label: string): Promise<void> {
+    if (!this.transporter) return
     try {
       await this.transporter.verify()
-      this.logger.log(`SMTP connected (${host}:${port})`)
+      this.logger.log(`SMTP connected (${label})`)
     } catch (err) {
       this.logger.warn(
-        `SMTP verification failed — emails will attempt delivery but may fail: ${err instanceof Error ? err.message : err}`,
+        `SMTP verification failed (${label}) — delivery may fail: ${err instanceof Error ? err.message : err}`,
       )
     }
   }
 
   /** Low-level immediate send used by the mail queue adapter. */
-  async sendImmediate(options: SendMailOptions): Promise<void> {
+  async sendImmediate(options: SendMailOptions): Promise<SendMailResult> {
     if (!this.enabled) {
       this.logger.log(`[MAIL DISABLED] To: ${options.to} | Subject: ${options.subject}`)
-      return
+      return {}
     }
 
     if (!this.transporter) {
-      this.logger.log(`[MAIL DEV] To: ${options.to}`)
-      this.logger.log(`[MAIL DEV] Subject: ${options.subject}`)
-      if (options.text) {
-        this.logger.log(`[MAIL DEV] Text: ${options.text}`)
-      } else {
-        this.logger.log(`[MAIL DEV] Body preview: ${options.html.slice(0, 200)}…`)
-      }
-      return
+      throw new Error(
+        'SMTP is not configured. Set SMTP_HOST, SMTP_USER, SMTP_PASS (or SMTP_URL) before sending mail.',
+      )
     }
 
-    await this.transporter.sendMail({
+    const info = await this.transporter.sendMail({
       from: this.from,
       to: options.to,
       subject: options.subject,
@@ -77,7 +126,15 @@ export class MailService implements OnModuleInit {
       text: options.text,
     })
 
+    const previewUrl = this.usingEthereal ? nodemailer.getTestMessageUrl(info) : undefined
+    if (previewUrl) {
+      this.logger.log(`Email sent to ${options.to}: ${options.subject}`)
+      this.logger.log(`Ethereal preview: ${previewUrl}`)
+      return { previewUrl: previewUrl ?? undefined }
+    }
+
     this.logger.log(`Email sent to ${options.to}: ${options.subject}`)
+    return {}
   }
 
   getAppUrl(): string {

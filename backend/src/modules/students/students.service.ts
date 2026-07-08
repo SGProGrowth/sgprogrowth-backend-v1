@@ -1,6 +1,11 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
+import { Prisma } from '@prisma/client'
 import { PrismaService } from '../../prisma/prisma.module'
+import { CacheService } from '../../cache/cache.service'
 import { ProgressService } from '../progress/progress.service'
+import type { UpdateStudentProfileDto } from '../../common/dto/profile.dto'
+
+const WORKSPACE_CACHE_TTL = 60
 
 function initials(name: string): string {
   return name
@@ -31,21 +36,38 @@ export class StudentsService {
   constructor(
     private prisma: PrismaService,
     private progressService: ProgressService,
+    private cache: CacheService,
   ) {}
 
   async getWorkspace(userId: string) {
+    const cacheKey = `workspace:student:${userId}`
+    const cached = await this.cache.get<Awaited<ReturnType<typeof this.buildWorkspace>>>(cacheKey)
+    if (cached) return cached
+
+    const workspace = await this.buildWorkspace(userId)
+    await this.cache.set(cacheKey, workspace, WORKSPACE_CACHE_TTL)
+    return workspace
+  }
+
+  private async buildWorkspace(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: {
         studentProfile: true,
         enrollments: {
           include: {
-            course: { include: { category: true, instructor: { include: { instructorProfile: true } }, modules: true } },
+            course: {
+              include: {
+                category: true,
+                instructor: {
+                  include: { instructorProfile: { select: { displayName: true } } },
+                },
+                _count: { select: { modules: true } },
+              },
+            },
             batch: true,
             milestones: true,
             certificates: true,
-            submissions: { include: { assignment: true } },
-            quizAttempts: { include: { quiz: true } },
           },
         },
         notifications: { orderBy: { createdAt: 'desc' }, take: 50 },
@@ -74,7 +96,7 @@ export class StudentsService {
         duration: c.durationHours ? `${c.durationHours} weeks` : 'Self-paced',
         progress: e.progressPct,
         modulesCompleted: e.modulesCompleted,
-        totalModules: c.modules.length > 0 ? c.modules.length : Math.max(e.modulesCompleted, 1),
+        totalModules: c._count.modules > 0 ? c._count.modules : Math.max(e.modulesCompleted, 1),
         lastAccessed: e.lastAccessedAt ? relativeTime(e.lastAccessedAt) : 'Recently',
         nextLesson: isCompleted ? 'Completed' : 'Continue learning',
         status: isCompleted ? ('completed' as const) : ('active' as const),
@@ -188,10 +210,24 @@ export class StudentsService {
       include: {
         batch: {
           include: {
-            course: { include: { instructor: { include: { instructorProfile: true } } } },
+            course: {
+              include: {
+                instructor: {
+                  include: { instructorProfile: { select: { displayName: true } } },
+                },
+              },
+            },
             batchEnrollments: {
               where: { status: 'active' },
-              include: { student: { include: { studentProfile: true } } },
+              include: {
+                student: {
+                  select: {
+                    id: true,
+                    email: true,
+                    studentProfile: { select: { displayName: true } },
+                  },
+                },
+              },
             },
           },
         },
@@ -200,8 +236,22 @@ export class StudentsService {
       orderBy: { enrolledAt: 'desc' },
     })
 
-    const batches = await Promise.all(
-      batchEnrollments.map(async (be) => {
+    const batchIds = batchEnrollments.map((be) => be.batchId)
+    const upcomingBatchEvents =
+      batchIds.length > 0
+        ? await this.prisma.batchEvent.findMany({
+            where: { batchId: { in: batchIds }, startsAt: { gte: new Date() } },
+            orderBy: { startsAt: 'asc' },
+          })
+        : []
+    const nextEventByBatch = new Map<string, (typeof upcomingBatchEvents)[number]>()
+    for (const event of upcomingBatchEvents) {
+      if (!nextEventByBatch.has(event.batchId)) {
+        nextEventByBatch.set(event.batchId, event)
+      }
+    }
+
+    const batches = batchEnrollments.map((be) => {
         const instructorName =
           be.batch.course.instructor.instructorProfile?.displayName ?? 'Instructor'
         const batchmates = be.batch.batchEnrollments
@@ -213,11 +263,7 @@ export class StudentsService {
             progress: 0,
           }))
         const studentsCount = be.batch.batchEnrollments.length
-
-        const nextEvent = await this.prisma.batchEvent.findFirst({
-          where: { batchId: be.batchId, startsAt: { gte: new Date() } },
-          orderBy: { startsAt: 'asc' },
-        })
+        const nextEvent = nextEventByBatch.get(be.batchId)
 
         return {
           id: be.batch.id,
@@ -237,8 +283,7 @@ export class StudentsService {
             : be.batch.schedule ?? 'See calendar',
           batchmates,
         }
-      }),
-    )
+      })
 
     const coachingSessions = await this.prisma.coachingSession.findMany({
       where: { enrollment: { studentId: userId } },
@@ -389,6 +434,7 @@ export class StudentsService {
         avatarInitials: initials(profile.displayName),
         timezone: profile.timezone,
         memberSince: user.createdAt.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+        preferences: (profile.preferences as Record<string, unknown> | null) ?? undefined,
       },
       courses,
       assignments: assignmentDtos,
@@ -423,5 +469,49 @@ export class StudentsService {
       message: 'announcement',
     }
     return map[type] ?? 'announcement'
+  }
+
+  async updateProfile(userId: string, input: UpdateStudentProfileDto) {
+    const profile = await this.prisma.studentProfile.findUnique({ where: { userId } })
+    if (!profile) throw new NotFoundException('Student profile not found')
+
+    await this.prisma.studentProfile.update({
+      where: { userId },
+      data: {
+        displayName: input.displayName,
+        phone: input.phone,
+        title: input.title,
+        bio: input.bio,
+        organizationLabel: input.organizationLabel,
+        timezone: input.timezone,
+        avatarUrl: input.avatarUrl,
+        preferences: input.preferences as Prisma.InputJsonValue | undefined,
+      },
+    })
+
+    await this.cache.invalidate(`workspace:student:${userId}`)
+    return this.getWorkspace(userId)
+  }
+
+  async markNotificationRead(userId: string, notificationId: string) {
+    const notification = await this.prisma.notification.findFirst({
+      where: { id: notificationId, userId },
+    })
+    if (!notification) throw new NotFoundException('Notification not found')
+
+    await this.prisma.notification.update({
+      where: { id: notificationId },
+      data: { readAt: new Date() },
+    })
+
+    return { message: 'Notification marked as read' }
+  }
+
+  async markAllNotificationsRead(userId: string) {
+    await this.prisma.notification.updateMany({
+      where: { userId, readAt: null },
+      data: { readAt: new Date() },
+    })
+    return { message: 'All notifications marked as read' }
   }
 }

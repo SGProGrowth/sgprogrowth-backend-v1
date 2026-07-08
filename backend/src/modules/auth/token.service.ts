@@ -23,13 +23,20 @@ export class TokenService {
   createRefreshToken(): { token: string; hash: string; expiresAt: Date } {
     const token = randomBytes(48).toString('base64url')
     const hash = this.hashToken(token)
-    const days = 7
+    const days = this.parseRefreshExpiresDays()
     const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000)
     return { token, hash, expiresAt }
   }
 
+  private parseRefreshExpiresDays(): number {
+    const raw = this.config.get<string>('JWT_REFRESH_EXPIRES_IN') ?? '7d'
+    const match = /^(\d+)d$/.exec(raw.trim())
+    return match ? Number(match[1]) : 7
+  }
+
   hashToken(token: string): string {
-    return createHash('sha256').update(token).digest('hex')
+    const pepper = this.config.get<string>('APP_SECRET')!
+    return createHash('sha256').update(`${pepper}:${token}`).digest('hex')
   }
 
   buildPayload(input: {

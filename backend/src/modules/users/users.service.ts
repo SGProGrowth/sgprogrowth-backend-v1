@@ -3,6 +3,13 @@ import { UserRole } from '@prisma/client'
 import { PrismaService } from '../../prisma/prisma.module'
 import { initialsFromName } from '../auth/token.service'
 
+function sanitizeInstructorProfile<T extends { payoutDetails?: unknown }>(profile: T | null) {
+  if (!profile) return null
+  const { payoutDetails: _removed, ...safeProfile } = profile
+  void _removed
+  return safeProfile
+}
+
 @Injectable()
 export class UsersService {
   constructor(private prisma: PrismaService) {}
@@ -43,7 +50,7 @@ export class UsersService {
       profile:
         activeRole === UserRole.student
           ? user.studentProfile
-          : user.instructorProfile,
+          : sanitizeInstructorProfile(user.instructorProfile),
     }
   }
 }

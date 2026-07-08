@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { resendVerificationEmail, requestPasswordReset, resetPassword } from '../../lib/api/auth'
+import { fetchDevAuthToken, resendVerificationEmail, requestPasswordReset, resetPassword } from '../../lib/api/auth'
 import { getErrorMessage } from '../../lib/api/errors'
 import { AuthLayout } from '../../layouts/AuthLayout'
 import { Button } from '../../components/ui/Button'
@@ -80,11 +80,13 @@ export function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const [devResetUrl, setDevResetUrl] = useState<string | null>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     setMessage('')
+    setDevResetUrl(null)
     if (!email.trim()) {
       setError('Please enter your email address.')
       return
@@ -93,6 +95,22 @@ export function ForgotPasswordPage() {
     try {
       const res = await requestPasswordReset(email.trim())
       setMessage(res.message)
+      if (import.meta.env.DEV) {
+        for (let attempt = 0; attempt < 8; attempt += 1) {
+          if (attempt > 0) {
+            await new Promise((resolve) => setTimeout(resolve, 500))
+          }
+          try {
+            const { token } = await fetchDevAuthToken(email.trim().toLowerCase(), 'reset')
+            if (token) {
+              setDevResetUrl(`/reset-password?token=${encodeURIComponent(token)}`)
+              break
+            }
+          } catch {
+            // Token not ready yet
+          }
+        }
+      }
     } catch (err) {
       setError(getErrorMessage(err))
     } finally {
@@ -123,7 +141,17 @@ export function ForgotPasswordPage() {
         </div>
 
         {message && (
-          <p className="rounded-md border border-forest-200 bg-forest-50 px-4 py-3 text-sm text-forest-900">{message}</p>
+          <div className="space-y-3">
+            <p className="rounded-md border border-forest-200 bg-forest-50 px-4 py-3 text-sm text-forest-900">{message}</p>
+            {devResetUrl && (
+              <p className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+                <span className="font-semibold">Local development shortcut: </span>
+                <Link to={devResetUrl} className="font-semibold text-forest-800 hover:text-forest-900">
+                  Reset password now
+                </Link>
+              </p>
+            )}
+          </div>
         )}
         {error && (
           <p className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>

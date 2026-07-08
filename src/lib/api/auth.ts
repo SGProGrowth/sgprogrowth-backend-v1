@@ -64,8 +64,15 @@ export function resetPassword(input: { token: string; password: string }): Promi
   return apiRequest('/auth/reset-password', { method: 'POST', body: input })
 }
 
-export function fetchCurrentUser(): Promise<StoredAuthUser & { emailVerified: boolean }> {
-  return apiRequest('/auth/me', { auth: true })
+/** Dev/E2E helper — retrieve last verification or reset token when E2E_TEST_MODE is enabled */
+export function fetchDevAuthToken(
+  email: string,
+  type: 'verify' | 'reset',
+): Promise<{ token: string }> {
+  if (!import.meta.env.DEV) {
+    return Promise.reject(new Error('Not available'))
+  }
+  return apiRequest(`/auth/test/token?email=${encodeURIComponent(email)}&type=${type}`)
 }
 
 export function saveLoginSession(response: AuthTokensResponse): StoredAuthUser {

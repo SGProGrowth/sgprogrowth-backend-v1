@@ -1,6 +1,7 @@
 import { BadRequestException } from '@nestjs/common'
 import { MediaAssetType } from '@prisma/client'
 import type { Express } from 'express'
+import { assertSafeUploadFilename } from '../../common/import-file.validation'
 
 const IMAGE_MIMES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
 const VIDEO_MIMES = new Set(['video/mp4', 'video/webm', 'video/quicktime'])
@@ -85,6 +86,12 @@ const RULES: Record<
 }
 
 export function validateMediaFile(file: Express.Multer.File, assetType: MediaAssetType) {
+  if (assetType === MediaAssetType.other) {
+    throw new BadRequestException('A specific asset type is required for uploads')
+  }
+
+  assertSafeUploadFilename(file.originalname)
+
   const rule = RULES[assetType] ?? RULES.other
   if (file.size > rule.maxBytes) {
     throw new BadRequestException(

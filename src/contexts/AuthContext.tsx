@@ -14,7 +14,6 @@ import {
   restoreSession,
   saveLoginSession,
 } from '../lib/api/auth'
-import { getErrorMessage } from '../lib/api/errors'
 import { clearAuthStorage, getStoredUser, type StoredAuthUser } from '../lib/api/tokenStorage'
 import { clearWorkspaceCache } from '../lib/workspaceCache'
 
@@ -69,8 +68,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async function bootstrap() {
       try {
         const restored = await restoreSession()
-        if (!cancelled && restored) {
-          setUser(toUser(restored))
+        if (!cancelled) {
+          setUser(restored ? toUser(restored) : null)
         }
       } finally {
         if (!cancelled) setIsLoading(false)
@@ -127,5 +126,3 @@ export function useAuth() {
   if (!ctx) throw new Error('useAuth must be used within AuthProvider')
   return ctx
 }
-
-export { getErrorMessage }

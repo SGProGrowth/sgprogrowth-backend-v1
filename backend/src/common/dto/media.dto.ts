@@ -1,6 +1,33 @@
-import { ApiPropertyOptional } from '@nestjs/swagger'
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 import { MediaAssetType } from '@prisma/client'
-import { IsEnum, IsOptional, IsString, IsUUID } from 'class-validator'
+import { IsEnum, IsNotIn, IsOptional, IsString, IsUUID } from 'class-validator'
+
+export class MediaUploadBodyDto {
+  @ApiProperty({ enum: MediaAssetType })
+  @IsEnum(MediaAssetType)
+  @IsNotIn([MediaAssetType.other], { message: 'assetType must be a specific media type' })
+  assetType!: MediaAssetType
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  courseSlug?: string
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  batchId?: string
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  lessonId?: string
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  replaceAssetId?: string
+}
 
 export class MediaListQueryDto {
   @ApiPropertyOptional()

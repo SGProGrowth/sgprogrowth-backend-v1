@@ -86,7 +86,7 @@ export class QuizzesController {
   @Post(':id/publish')
   @Roles(UserRole.instructor)
   publish(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
-    return this.quizzesService.publishQuiz(id, user.sub, user.email)
+    return this.quizzesService.publishQuiz(id, user.sub)
   }
 
   @Post(':id/unpublish')

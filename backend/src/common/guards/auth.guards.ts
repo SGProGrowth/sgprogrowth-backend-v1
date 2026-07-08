@@ -35,9 +35,9 @@ export class RolesGuard implements CanActivate {
     const { user } = context.switchToHttp().getRequest<{ user: JwtPayload }>()
     if (!user) throw new UnauthorizedException()
 
-    const hasRole = requiredRoles.some((role) => user.roles.includes(role))
+    const hasRole = requiredRoles.some((role) => user.activeRole === role)
     if (!hasRole) {
-      throw new ForbiddenException('Insufficient permissions')
+      throw new ForbiddenException('Insufficient permissions for the active role')
     }
 
     return true

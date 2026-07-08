@@ -305,6 +305,8 @@ model User {
   announcements       Announcement[]
   learningActivities    LearningActivity[]
   studentCertificates   Certificate[]        @relation("StudentCertificates")
+  createdCertificateTemplates CertificateTemplate[] @relation("CertificateTemplateCreatedBy")
+  createdCertificateTemplateVersions CertificateTemplateVersion[] @relation("CertificateTemplateVersionCreatedBy")
   revokedCertificates   Certificate[]        @relation("RevokedCertificates")
   issuedCertificates    Certificate[]        @relation("IssuedCertificates")
   batchInstructorRoles  BatchInstructor[]
@@ -525,6 +527,8 @@ model Course {
   learningActivities LearningActivity[]
   certificates       Certificate[]
   certificateRule    CertificateCompletionRule?
+  certificateTemplateId String?              @map("certificate_template_id") @db.Uuid
+  certificateTemplate   CertificateTemplate? @relation(fields: [certificateTemplateId], references: [id], onDelete: SetNull)
   batchImportJobs    BatchImportJob[]
   mediaAssets        MediaAsset[]
 
@@ -1448,23 +1452,51 @@ model CoachingSession {
 // ─── Certificates & leads ─────────────────────────────────────────────────────
 
 model CertificateTemplate {
-  id             String   @id @default(uuid()) @db.Uuid
-  organizationId String   @map("organization_id") @db.Uuid
-  name           String   @db.VarChar(255)
-  slug           String   @db.VarChar(100)
-  description    String?  @db.Text
-  isDefault      Boolean  @default(false) @map("is_default")
-  design         Json     @default("{}")
-  active         Boolean  @default(true)
-  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  id               String   @id @default(uuid()) @db.Uuid
+  organizationId   String   @map("organization_id") @db.Uuid
+  name             String   @db.VarChar(255)
+  slug             String   @db.VarChar(100)
+  description      String?  @db.Text
+  isDefault        Boolean  @default(false) @map("is_default")
+  design           Json     @default("{}")
+  active           Boolean  @default(true)
+  currentVersionId String?  @unique @map("current_version_id") @db.Uuid
+  createdById      String?  @map("created_by_id") @db.Uuid
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  certificates Certificate[]
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  currentVersion CertificateTemplateVersion? @relation("TemplateCurrentVersion", fields: [currentVersionId], references: [id], onDelete: SetNull)
+  versions       CertificateTemplateVersion[] @relation("TemplateVersions")
+  courses        Course[]
+  certificates   Certificate[]
+  createdBy      User? @relation("CertificateTemplateCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
 
   @@unique([organizationId, slug])
   @@index([organizationId, active])
   @@map("certificate_templates")
+}
+
+model CertificateTemplateVersion {
+  id            String   @id @default(uuid()) @db.Uuid
+  templateId    String   @map("template_id") @db.Uuid
+  versionNumber Int      @map("version_number")
+  storageKey    String?  @map("storage_key") @db.VarChar(512)
+  mimeType      String?  @map("mime_type") @db.VarChar(128)
+  fileSizeBytes Int?     @map("file_size_bytes")
+  originalName  String?  @map("original_name") @db.VarChar(255)
+  design        Json     @default("{}")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+  createdById   String?  @map("created_by_id") @db.Uuid
+
+  template           CertificateTemplate  @relation("TemplateVersions", fields: [templateId], references: [id], onDelete: Cascade)
+  currentForTemplate CertificateTemplate? @relation("TemplateCurrentVersion")
+  certificates       Certificate[]
+  createdBy          User? @relation("CertificateTemplateVersionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([templateId, versionNumber])
+  @@index([templateId])
+  @@map("certificate_template_versions")
 }
 
 model CertificateCompletionRule {
@@ -1492,6 +1524,8 @@ model Certificate {
   courseId          String            @map("course_id") @db.Uuid
   studentId         String            @map("student_id") @db.Uuid
   templateId        String?           @map("template_id") @db.Uuid
+  templateVersionId String?           @map("template_version_id") @db.Uuid
+  designSnapshot    Json?             @map("design_snapshot")
   credentialId      String            @unique @map("credential_id") @db.VarChar(100)
   certificateNumber String            @unique @map("certificate_number") @db.VarChar(100)
   title             String            @db.VarChar(500)
@@ -1517,8 +1551,9 @@ model Certificate {
   enrollment    Enrollment              @relation(fields: [enrollmentId], references: [id])
   course        Course                  @relation(fields: [courseId], references: [id])
   student       User                    @relation("StudentCertificates", fields: [studentId], references: [id])
-  template      CertificateTemplate?    @relation(fields: [templateId], references: [id], onDelete: SetNull)
-  reissuedFrom  Certificate?            @relation("CertificateReissue", fields: [reissuedFromId], references: [id], onDelete: SetNull)
+  template        CertificateTemplate?         @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  templateVersion CertificateTemplateVersion?  @relation(fields: [templateVersionId], references: [id], onDelete: SetNull)
+  reissuedFrom    Certificate?                 @relation("CertificateReissue", fields: [reissuedFromId], references: [id], onDelete: SetNull)
   reissues      Certificate[]           @relation("CertificateReissue")
   revokedBy     User?                   @relation("RevokedCertificates", fields: [revokedById], references: [id], onDelete: SetNull)
   issuedBy      User?                   @relation("IssuedCertificates", fields: [issuedById], references: [id], onDelete: SetNull)

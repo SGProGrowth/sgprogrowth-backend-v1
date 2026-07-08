@@ -13,6 +13,7 @@ import {
   UseGuards,
 } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
+import { Throttle } from '@nestjs/throttler'
 import { UserRole } from '@prisma/client'
 import { CurrentUser, JwtPayload, Roles } from '../../common/decorators/auth.decorator'
 import {
@@ -26,6 +27,7 @@ import {
 import { ApiMessageDto } from '../../common/dto/auth.dto'
 import { JwtAuthGuard, RolesGuard } from '../../common/guards/auth.guards'
 import { OptionalJwtAuthGuard } from '../../common/guards/optional-jwt.guard'
+import { ThrottleLimits } from '../../config/throttle.constants'
 import { CoursesCatalogService } from './courses-catalog.service'
 import { CoursesCurriculumService } from './courses-curriculum.service'
 import { CoursesService } from './courses.service'
@@ -40,6 +42,7 @@ export class CoursesController {
   ) {}
 
   @Get()
+  @Throttle({ default: ThrottleLimits.public })
   @ApiOperation({ summary: 'Public course catalog with search, filters, and pagination' })
   listCatalog(@Query() query: CourseCatalogQueryDto) {
     return this.catalogService.listCatalog(query)
@@ -65,6 +68,7 @@ export class CoursesController {
 
   @Get(':slug')
   @UseGuards(OptionalJwtAuthGuard)
+  @Throttle({ default: ThrottleLimits.public })
   @ApiOperation({ summary: 'Course detail — public catalog view or owner/enrolled access' })
   getOne(@Param('slug') slug: string, @CurrentUser() user: JwtPayload | null) {
     return this.coursesService.findBySlugForViewer(slug, user ?? undefined)

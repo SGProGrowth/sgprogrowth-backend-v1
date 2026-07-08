@@ -1,20 +1,52 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useInstructorDashboard } from '../../../hooks/useInstructorDashboard'
-import { fetchInstructorAnalytics, fetchInstructorHeatmap, type InstructorAnalytics } from '../../../lib/api/analytics'
-import { downloadAssignmentReport, downloadBatchReport, downloadCertificateReport, downloadCourseReport, downloadQuizReport } from '../../../lib/api/reports'
-import { PageIntro, Panel, StatTile } from '../../../components/dashboard/PageShell'
+import { AlertBanner } from '../../../components/ui/AlertBanner'
+import { getFriendlyErrorMessage } from '../../../lib/api/errors'
+import { markAllInstructorNotificationsRead } from '../../../lib/api/profile'
+import {
+  fetchInstructorAnalytics,
+  fetchInstructorHeatmap,
+  type InstructorAnalytics,
+  downloadAssignmentReport,
+  downloadBatchReport,
+  downloadCertificateReport,
+  downloadCourseReport,
+  downloadQuizReport,
+} from '../../../lib/api/analytics'
+import { PageIntro, Panel, StatTile, EmptyState } from '../../../components/dashboard/PageShell'
 import { SelectField } from '../../../components/instructor/FormField'
 import { Button } from '../../../components/ui/Button'
+import { LoadingState } from '../../../components/ui/LoadingState'
+import {
+  currentMonthView,
+  defaultSelectedDay,
+  eventDayOfMonth,
+  eventMatchesMonth,
+  formatIsoDate,
+  formatMonthYear,
+  getMonthGrid,
+  shiftMonth,
+  type MonthView,
+} from '../../../lib/calendarUtils'
 
 export function InstructorNotificationsPage() {
-  const { workspace } = useInstructorDashboard()
+  const { workspace, refresh } = useInstructorDashboard()
   const [items, setItems] = useState(workspace?.notifications ?? [])
+  const [actionError, setActionError] = useState('')
 
   useEffect(() => {
     setItems(workspace?.notifications ?? [])
   }, [workspace])
 
   const unread = items.filter((n) => !n.read)
+
+  const markAllRead = () => {
+    setActionError('')
+    setItems((p) => p.map((n) => ({ ...n, read: true })))
+    void markAllInstructorNotificationsRead()
+      .then(() => refresh())
+      .catch(() => setActionError('Could not mark all notifications as read. Please try again.'))
+  }
 
   return (
     <div className="animate-rise">
@@ -23,23 +55,41 @@ export function InstructorNotificationsPage() {
         title="Notifications"
         description="Enrollments, submissions, reviews, and session reminders."
         action={unread.length > 0 ? (
-          <button type="button" onClick={() => setItems((p) => p.map((n) => ({ ...n, read: true })))} className="text-sm font-semibold text-forest-800">
+          <button
+            type="button"
+            onClick={markAllRead}
+            className="action-link"
+          >
             Mark all read
           </button>
         ) : undefined}
       />
 
+      {actionError && (
+        <AlertBanner variant="error" className="mb-4">
+          {actionError}
+        </AlertBanner>
+      )}
+
       <div className="space-y-3">
-        {items.map((n) => (
-          <div key={n.id} className={`rounded-xl border p-5 ${n.read ? 'border-stone-200 bg-white' : 'border-forest-200 bg-forest-50/30'}`}>
-            <div className="flex items-start justify-between gap-2">
-              <p className={`text-sm font-semibold ${n.read ? 'text-ink-2' : 'text-ink'}`}>{n.title}</p>
-              {!n.read && <span className="h-2 w-2 rounded-full bg-forest-600" />}
+        {items.length > 0 ? (
+          items.map((n) => (
+            <div key={n.id} className={`rounded-xl border p-5 ${n.read ? 'border-stone-200 bg-white' : 'border-forest-200 bg-forest-50/30'}`}>
+              <div className="flex items-start justify-between gap-2">
+                <p className={`text-sm font-semibold ${n.read ? 'text-ink-2' : 'text-ink'}`}>{n.title}</p>
+                {!n.read && <span className="h-2 w-2 rounded-full bg-forest-600" aria-hidden="true" />}
+              </div>
+              <p className="mt-1 text-sm text-ink-3">{n.message}</p>
+              <p className="mt-2 text-xs text-ink-4">{n.time}</p>
             </div>
-            <p className="mt-1 text-sm text-ink-3">{n.message}</p>
-            <p className="mt-2 text-xs text-ink-4">{n.time}</p>
-          </div>
-        ))}
+          ))
+        ) : (
+          <EmptyState
+            icon="bell"
+            title="No notifications yet"
+            description="Enrollments, submissions, and session reminders will appear here."
+          />
+        )}
       </div>
     </div>
   )
@@ -50,44 +100,117 @@ const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 export function InstructorCalendarPage() {
   const { workspace } = useInstructorDashboard()
   const calendarEvents = workspace?.calendarEvents ?? []
-  const eventDays = new Set(
-    calendarEvents
-      .map((e) => parseInt(e.date.split(' ')[1]?.replace(',', '') ?? '', 10))
-      .filter((d) => !Number.isNaN(d)),
+  const [monthView, setMonthView] = useState<MonthView>(currentMonthView)
+  const [selectedDay, setSelectedDay] = useState<number | null>(() =>
+    defaultSelectedDay(currentMonthView()),
   )
+
+  const monthEvents = useMemo(
+    () => calendarEvents.filter((e) => eventMatchesMonth(e.date, monthView)),
+    [calendarEvents, monthView],
+  )
+
+  const eventDays = useMemo(
+    () =>
+      new Set(
+        monthEvents
+          .map((e) => eventDayOfMonth(e.date))
+          .filter((d): d is number => d !== null),
+      ),
+    [monthEvents],
+  )
+
+  const dayEvents = useMemo(
+    () =>
+      selectedDay
+        ? monthEvents.filter((e) => eventDayOfMonth(e.date) === selectedDay)
+        : [],
+    [monthEvents, selectedDay],
+  )
+
+  const { daysInMonth, startOffset } = getMonthGrid(monthView)
+  const gridCells = startOffset + daysInMonth
+  const paddedCells = Math.ceil(gridCells / 7) * 7
+
+  const changeMonth = (delta: number) => {
+    const next = shiftMonth(monthView, delta)
+    setMonthView(next)
+    setSelectedDay(defaultSelectedDay(next))
+  }
 
   return (
     <div className="animate-rise">
-      <PageIntro eyebrow="Schedule" title="Calendar" description="Coaching sessions, deadlines, and live events." action={<Button variant="primary" size="md">+ Add event</Button>} />
+      <PageIntro eyebrow="Schedule" title="Calendar" description="Coaching sessions, deadlines, and live events." />
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <Panel title="June 2026" className="lg:col-span-2">
+        <Panel
+          title={formatMonthYear(monthView)}
+          className="lg:col-span-2"
+          action={
+            <div className="flex items-center gap-1">
+              <button type="button" onClick={() => changeMonth(-1)} className="rounded-md px-2 py-1 text-xs font-semibold text-ink-3 hover:bg-stone-100 hover:text-ink" aria-label="Previous month">←</button>
+              <button
+                type="button"
+                onClick={() => {
+                  const now = currentMonthView()
+                  setMonthView(now)
+                  setSelectedDay(defaultSelectedDay(now))
+                }}
+                className="rounded-md px-2 py-1 text-xs font-semibold text-ink-3 hover:bg-stone-100 hover:text-ink"
+              >
+                Today
+              </button>
+              <button type="button" onClick={() => changeMonth(1)} className="rounded-md px-2 py-1 text-xs font-semibold text-ink-3 hover:bg-stone-100 hover:text-ink" aria-label="Next month">→</button>
+            </div>
+          }
+        >
           <div className="grid grid-cols-7 gap-1 text-center text-xs font-semibold text-ink-3 mb-2">
             {days.map((d) => <span key={d}>{d}</span>)}
           </div>
           <div className="grid grid-cols-7 gap-1">
-            {Array.from({ length: 35 }, (_, i) => {
-              const day = i - 2
-              const hasEvent = eventDays.has(day)
+            {Array.from({ length: paddedCells }, (_, i) => {
+              const day = i - startOffset + 1
+              const inMonth = day >= 1 && day <= daysInMonth
+              const hasEvent = inMonth && eventDays.has(day)
+              const isSelected = selectedDay === day
               return (
-                <div key={i} className={`aspect-square rounded-md flex items-center justify-center text-sm ${day < 1 || day > 30 ? 'text-ink-4/30' : hasEvent ? 'bg-forest-100 font-bold text-forest-800' : 'hover:bg-stone-100 text-ink-2'}`}>
-                  {day >= 1 && day <= 30 ? day : ''}
-                </div>
+                <button
+                  key={i}
+                  type="button"
+                  disabled={!inMonth}
+                  onClick={() => inMonth && setSelectedDay(day)}
+                  className={`aspect-square rounded-md flex items-center justify-center text-sm transition-colors ${
+                    !inMonth ? 'text-ink-4/30 cursor-default'
+                    : isSelected ? 'bg-forest-800 font-bold text-white'
+                    : hasEvent ? 'bg-forest-100 font-bold text-forest-800 hover:bg-forest-200'
+                    : 'hover:bg-stone-100 text-ink-2'
+                  }`}
+                >
+                  {inMonth ? day : ''}
+                </button>
               )
             })}
           </div>
         </Panel>
 
-        <Panel title="Upcoming events">
-          <ul className="space-y-4">
-            {calendarEvents.map((e) => (
-              <li key={e.id} className="border-l-2 border-forest-600 pl-3">
-                <p className="text-sm font-semibold text-ink">{e.title}</p>
-                <p className="text-xs text-ink-3">{e.date} · {e.time}</p>
-                {e.courseTitle && <p className="text-xs text-ink-4">{e.courseTitle}</p>}
-              </li>
-            ))}
-          </ul>
+        <Panel title={selectedDay ? `${formatMonthYear(monthView).split(' ')[0]} ${selectedDay} — Events` : 'Upcoming events'}>
+          {(selectedDay ? dayEvents : calendarEvents).length > 0 ? (
+            <ul className="space-y-4">
+              {(selectedDay ? dayEvents : calendarEvents).map((e) => (
+                <li key={e.id} className="border-l-2 border-forest-600 pl-3">
+                  <p className="text-sm font-semibold text-ink">{e.title}</p>
+                  <p className="text-xs text-ink-3">{formatIsoDate(e.date)} · {e.time}</p>
+                  {e.courseTitle && <p className="text-xs text-ink-4">{e.courseTitle}</p>}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <EmptyState
+              icon="calendar"
+              title="No upcoming events"
+              description="Scheduled coaching sessions and deadlines will appear on your calendar."
+            />
+          )}
         </Panel>
       </div>
     </div>
@@ -108,7 +231,7 @@ export function InstructorAnalyticsPage() {
     if (courses.length && !courseSlug) setCourseSlug(courses[0].id)
   }, [courses, courseSlug])
 
-  useEffect(() => {
+  const loadAnalytics = useCallback(() => {
     setLoading(true)
     setError(null)
     Promise.all([
@@ -119,9 +242,13 @@ export function InstructorAnalyticsPage() {
         setAnalytics(a)
         setHeatmap(h as typeof heatmap)
       })
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : 'Failed to load analytics'))
+      .catch((err: unknown) => setError(getFriendlyErrorMessage(err, 'Failed to load analytics.')))
       .finally(() => setLoading(false))
   }, [courseSlug])
+
+  useEffect(() => {
+    loadAnalytics()
+  }, [loadAnalytics])
 
   if (!summary) {
     return (
@@ -158,7 +285,12 @@ export function InstructorAnalyticsPage() {
       />
 
       {error && (
-        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>
+        <AlertBanner variant="error" className="mb-4">
+          {error}
+          <button type="button" className="action-link ml-2 inline-flex" onClick={loadAnalytics}>
+            Try again
+          </button>
+        </AlertBanner>
       )}
 
       <div className="mb-6 max-w-xs">
@@ -174,7 +306,7 @@ export function InstructorAnalyticsPage() {
       </div>
 
       {loading && !analytics ? (
-        <p className="text-sm text-ink-3 py-8 text-center">Loading analytics…</p>
+        <LoadingState label="Loading analytics…" />
       ) : analytics && (
         <>
           <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -244,7 +376,7 @@ export function InstructorAnalyticsPage() {
 
           {heatmap && (
             <Panel title="Learning activity heatmap" className="mb-8">
-              <div className="overflow-x-auto">
+              <div className="table-scroll">
                 <div className="min-w-[640px] grid gap-1" style={{ gridTemplateColumns: '48px repeat(24, 1fr)' }}>
                   <div />
                   {Array.from({ length: 24 }, (_, h) => (

@@ -9,6 +9,7 @@ import {
   CertificateStatus,
   CertificateVerificationResult,
   Prisma,
+  UserRole,
 } from '@prisma/client'
 import { randomBytes } from 'crypto'
 import { formatDateLabel } from '../../common/utils/course.util'
@@ -24,6 +25,7 @@ import { NotificationMailService } from '../mail/notification-mail.service'
 import { StorageService } from '../storage/storage.service'
 import { CertificatePdfService } from './certificate-pdf.service'
 import { CertificateRulesService } from './certificate-rules.service'
+import { CertificateTemplatesService } from './certificate-templates.service'
 
 @Injectable()
 export class CertificatesService {
@@ -33,6 +35,7 @@ export class CertificatesService {
     private storage: StorageService,
     private pdfService: CertificatePdfService,
     private rulesService: CertificateRulesService,
+    private templatesService: CertificateTemplatesService,
     private notificationMail: NotificationMailService,
   ) {}
 
@@ -99,25 +102,52 @@ export class CertificatesService {
     }
   }
 
-  async ensureDefaultTemplate(organizationId: string) {
-    const existing = await this.prisma.certificateTemplate.findFirst({
-      where: { organizationId, isDefault: true, active: true },
-    })
-    if (existing) return existing
+  private async generateAndStorePdf(
+    cert: {
+      id: string
+      credentialId: string
+      certificateNumber: string
+      studentName: string
+      instructorName: string
+      completionDate: Date
+      issuedAt: Date
+      verificationUrl: string
+      designSnapshot: Prisma.JsonValue | null
+      metadata: Prisma.JsonValue
+    },
+    courseTitle: string,
+    organizationName: string,
+    logoUrl?: string | null,
+  ) {
+    const snapshot = (cert.designSnapshot ?? {}) as {
+      storageKey?: string
+      design?: Record<string, unknown>
+    }
+    if (!snapshot.storageKey) {
+      throw new BadRequestException('Certificate design snapshot is missing template background')
+    }
 
-    return this.prisma.certificateTemplate.create({
-      data: {
-        organizationId,
-        name: 'Classic Professional',
-        slug: 'classic-professional',
-        description: 'Default SG Pro Growth certificate template',
-        isDefault: true,
-        design: {
-          primaryColor: '#1B4332',
-          accentColor: '#D4A017',
-          borderStyle: 'double',
-        },
-      },
+    const backgroundBuffer = await this.storage.readBuffer(snapshot.storageKey)
+    const pdfBuffer = await this.pdfService.generate({
+      organizationName,
+      logoUrl,
+      studentName: cert.studentName,
+      courseTitle,
+      instructorName: cert.instructorName,
+      certificateNumber: cert.certificateNumber,
+      credentialId: cert.credentialId,
+      completionDate: cert.completionDate,
+      issuedAt: cert.issuedAt,
+      verificationUrl: cert.verificationUrl,
+      backgroundBuffer,
+      design: snapshot.design,
+    })
+
+    const pdfKey = this.storage.buildKey('certificates', `${cert.credentialId}.pdf`)
+    await this.storage.saveBuffer(pdfKey, pdfBuffer, { contentType: 'application/pdf' })
+    await this.prisma.certificate.update({
+      where: { id: cert.id },
+      data: { pdfStorageKey: pdfKey },
     })
   }
 
@@ -214,10 +244,11 @@ export class CertificatesService {
       }
     }
 
-    const template =
-      (input.templateId
-        ? await this.prisma.certificateTemplate.findUnique({ where: { id: input.templateId } })
-        : null) ?? (await this.ensureDefaultTemplate(enrollment.organizationId))
+    const resolved = await this.templatesService.resolveTemplateForIssue(
+      enrollment.organizationId,
+      { templateId: input.templateId, courseId: enrollment.courseId },
+    )
+    const { template, version, snapshot } = resolved
 
     const credentialId = this.generateCredentialId()
     const certificateNumber = this.generateCertificateNumber()
@@ -240,6 +271,8 @@ export class CertificatesService {
         courseId: enrollment.courseId,
         studentId: enrollment.studentId,
         templateId: template.id,
+        templateVersionId: version.id,
+        designSnapshot: snapshot as Prisma.InputJsonValue,
         credentialId,
         certificateNumber,
         title: `${enrollment.course.title} — Certificate of Completion`,
@@ -254,31 +287,19 @@ export class CertificatesService {
           organizationName: enrollment.course.organization.name,
           digitalSignaturePlaceholder: true,
           qrCodeUrl: verificationUrl,
+          templateName: template.name,
+          templateVersionNumber: version.versionNumber,
         },
       },
       include: { course: true },
     })
 
-    const pdfBuffer = await this.pdfService.generate({
-      organizationName: enrollment.course.organization.name,
-      logoUrl: enrollment.course.organization.logoUrl,
-      studentName,
-      courseTitle: enrollment.course.title,
-      instructorName,
-      certificateNumber,
-      credentialId,
-      completionDate,
-      issuedAt: cert.issuedAt,
-      verificationUrl,
-      design: template.design as { primaryColor?: string; accentColor?: string },
-    })
-
-    const pdfKey = this.storage.buildKey('certificates', `${credentialId}.pdf`)
-    await this.storage.saveBuffer(pdfKey, pdfBuffer)
-    await this.prisma.certificate.update({
-      where: { id: cert.id },
-      data: { pdfStorageKey: pdfKey },
-    })
+    await this.generateAndStorePdf(
+      cert,
+      enrollment.course.title,
+      enrollment.course.organization.name,
+      enrollment.course.organization.logoUrl,
+    )
 
     void this.notificationMail.sendCertificateIssued({
       userId: enrollment.studentId,
@@ -302,7 +323,7 @@ export class CertificatesService {
     return certs.map((c) => this.mapCertificate(c))
   }
 
-  async getCertificateDetail(certificateId: string, userId: string, role?: string) {
+  async getCertificateDetail(certificateId: string, userId: string) {
     const cert = await this.prisma.certificate.findUnique({
       where: { id: certificateId },
       include: { course: { include: { instructor: true } }, student: true },
@@ -316,7 +337,7 @@ export class CertificatesService {
     return this.mapCertificate(cert)
   }
 
-  async getCertificatePdf(certificateId: string, userId: string, role?: string) {
+  async getCertificatePdf(certificateId: string, userId: string) {
     const cert = await this.prisma.certificate.findUnique({
       where: { id: certificateId },
       include: { course: true },
@@ -342,16 +363,13 @@ export class CertificatesService {
       throw new ForbiddenException('Access denied')
     }
 
-    const related = await this.prisma.certificate.findMany({
-      where: {
-        OR: [{ id: certificateId }, { reissuedFromId: certificateId }, { id: cert.reissuedFromId ?? undefined }],
-        enrollmentId: cert.enrollmentId,
-      },
+    const chain = await this.prisma.certificate.findMany({
+      where: { enrollmentId: cert.enrollmentId },
       include: { course: true },
       orderBy: { issuedAt: 'asc' },
     })
 
-    return related.map((c) => this.mapCertificate(c))
+    return chain.map((c) => this.mapCertificate(c))
   }
 
   async listInstructorCertificates(instructorId: string, query: InstructorCertificatesQueryDto) {
@@ -436,19 +454,20 @@ export class CertificatesService {
     if (!cert) throw new NotFoundException('Certificate not found')
     if (cert.course.instructorId !== instructorId) throw new ForbiddenException('Access denied')
 
+    if (cert.status !== CertificateStatus.active) {
+      throw new BadRequestException('Only active certificates can be reissued')
+    }
+
     await this.prisma.certificate.update({
       where: { id: certificateId },
       data: { status: CertificateStatus.superseded },
     })
 
-    const template =
-      (dto.templateId
-        ? await this.prisma.certificateTemplate.findUnique({ where: { id: dto.templateId } })
-        : null) ??
-      (cert.templateId
-        ? await this.prisma.certificateTemplate.findUnique({ where: { id: cert.templateId } })
-        : null) ??
-      (await this.ensureDefaultTemplate(cert.organizationId))
+    const resolved = await this.templatesService.resolveTemplateForIssue(
+      cert.organizationId,
+      { templateId: dto.templateId, courseId: cert.courseId },
+    )
+    const { template, version, snapshot } = resolved
 
     const credentialId = this.generateCredentialId()
     const certificateNumber = this.generateCertificateNumber()
@@ -461,6 +480,8 @@ export class CertificatesService {
         courseId: cert.courseId,
         studentId: cert.studentId,
         templateId: template.id,
+        templateVersionId: version.id,
+        designSnapshot: snapshot as Prisma.InputJsonValue,
         credentialId,
         certificateNumber,
         title: cert.title,
@@ -472,7 +493,12 @@ export class CertificatesService {
         verificationUrl,
         reissuedFromId: cert.id,
         issuedById: instructorId,
-        metadata: cert.metadata as Prisma.InputJsonValue,
+        metadata: {
+          ...(cert.metadata as Record<string, unknown>),
+          templateName: template.name,
+          templateVersionNumber: version.versionNumber,
+          reissuedFromCredentialId: cert.credentialId,
+        },
       },
       include: { course: true, student: true },
     })
@@ -480,25 +506,12 @@ export class CertificatesService {
     const org = await this.prisma.organization.findUnique({
       where: { id: cert.organizationId },
     })
-    const pdfBuffer = await this.pdfService.generate({
-      organizationName: org?.name ?? 'SG Pro Growth',
-      logoUrl: org?.logoUrl,
-      studentName: cert.studentName,
-      courseTitle: cert.course.title,
-      instructorName: cert.instructorName,
-      certificateNumber,
-      credentialId,
-      completionDate: cert.completionDate,
-      issuedAt: newCert.issuedAt,
-      verificationUrl,
-      design: template.design as { primaryColor?: string; accentColor?: string },
-    })
-    const pdfKey = this.storage.buildKey('certificates', `${credentialId}.pdf`)
-    await this.storage.saveBuffer(pdfKey, pdfBuffer)
-    await this.prisma.certificate.update({
-      where: { id: newCert.id },
-      data: { pdfStorageKey: pdfKey },
-    })
+    await this.generateAndStorePdf(
+      newCert,
+      cert.course.title,
+      org?.name ?? 'SG Pro Growth',
+      org?.logoUrl,
+    )
 
     void this.notificationMail.sendCertificateReissued({
       userId: cert.studentId,
@@ -607,12 +620,7 @@ export class CertificatesService {
     })
   }
 
-  async listTemplates(instructorId: string) {
-    const orgId = await this.defaultOrgId()
-    await this.ensureDefaultTemplate(orgId)
-    return this.prisma.certificateTemplate.findMany({
-      where: { organizationId: orgId, active: true },
-      orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
-    })
+  async listTemplates(userId: string, roles: UserRole[]) {
+    return this.templatesService.listTemplates(userId, roles, true)
   }
 }

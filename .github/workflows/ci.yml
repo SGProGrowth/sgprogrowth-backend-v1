@@ -77,6 +77,7 @@ jobs:
           REDIS_URL: redis://localhost:6379
           JWT_ACCESS_SECRET: ci-access-secret-minimum-32-characters-long
           JWT_REFRESH_SECRET: ci-refresh-secret-minimum-32-characters-long
+          APP_SECRET: ci-app-secret-minimum-32-characters-long
           E2E_TEST_MODE: 'true'
           REQUIRE_EMAIL_VERIFICATION: 'true'
           THROTTLE_DEFAULT_LIMIT: '500'

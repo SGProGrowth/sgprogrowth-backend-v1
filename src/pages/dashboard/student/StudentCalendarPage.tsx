@@ -1,8 +1,19 @@
 import { useMemo, useState } from 'react'
-import { useStudentDashboard } from '../../../hooks/useStudentDashboard'
+import { useStudentDashboard } from '../../../contexts/DashboardWorkspaceContext'
 import { type CalendarEventType } from '../../../data/studentData'
-import { PageIntro, Panel, StatTile, TabBar } from '../../../components/student/Panel'
-import { Button } from '../../../components/ui/Button'
+import { PageIntro, Panel, StatTile, TabBar, EmptyState } from '../../../components/student/Panel'
+import {
+  currentMonthView,
+  defaultSelectedDay,
+  eventDayOfMonth,
+  eventMatchesMonth,
+  eventsThisWeek,
+  formatIsoDate,
+  formatMonthYear,
+  getMonthGrid,
+  shiftMonth,
+  type MonthView,
+} from '../../../lib/calendarUtils'
 
 const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
@@ -17,11 +28,11 @@ const typeLabels: Record<CalendarEventType, string> = {
 
 const typeColors: Record<CalendarEventType, string> = {
   coaching: 'bg-forest-100 text-forest-800 border-forest-200',
-  live: 'bg-blue-50 text-blue-800 border-blue-200',
+  live: 'bg-gold-50 text-gold-800 border-gold-200',
   deadline: 'bg-red-50 text-red-800 border-red-200',
   quiz: 'bg-gold-100 text-gold-900 border-gold-200',
   module: 'bg-stone-100 text-ink-2 border-stone-200',
-  batch: 'bg-purple-50 text-purple-800 border-purple-200',
+  batch: 'bg-stone-100 text-ink-2 border-stone-300',
 }
 
 export function StudentCalendarPage() {
@@ -29,22 +40,44 @@ export function StudentCalendarPage() {
   const studentCalendarEvents = workspace?.calendarEvents ?? []
   const [view, setView] = useState('month')
   const [filter, setFilter] = useState<CalendarEventType | 'all'>('all')
-  const [selectedDay, setSelectedDay] = useState<number | null>(26)
+  const [monthView, setMonthView] = useState<MonthView>(currentMonthView)
+  const [selectedDay, setSelectedDay] = useState<number | null>(() =>
+    defaultSelectedDay(currentMonthView()),
+  )
 
   const filtered = useMemo(
     () => (filter === 'all' ? studentCalendarEvents : studentCalendarEvents.filter((e) => e.type === filter)),
     [filter, studentCalendarEvents],
   )
 
+  const monthEvents = useMemo(
+    () => filtered.filter((e) => eventMatchesMonth(e.date, monthView)),
+    [filtered, monthView],
+  )
+
+  const weekEvents = useMemo(() => eventsThisWeek(filtered), [filtered])
+
   const eventDays = useMemo(
-    () => new Set(filtered.map((e) => parseInt(e.date.split('-')[2], 10))),
-    [filtered],
+    () =>
+      new Set(
+        monthEvents
+          .map((e) => eventDayOfMonth(e.date))
+          .filter((d): d is number => d !== null),
+      ),
+    [monthEvents],
   )
 
   const dayEvents = useMemo(
-    () => (selectedDay ? filtered.filter((e) => parseInt(e.date.split('-')[2], 10) === selectedDay) : []),
-    [filtered, selectedDay],
+    () =>
+      selectedDay
+        ? monthEvents.filter((e) => eventDayOfMonth(e.date) === selectedDay)
+        : [],
+    [monthEvents, selectedDay],
   )
+
+  const { daysInMonth, startOffset } = getMonthGrid(monthView)
+  const gridCells = startOffset + daysInMonth
+  const paddedCells = Math.ceil(gridCells / 7) * 7
 
   const filterTabs = [
     { id: 'all', label: 'All events', count: studentCalendarEvents.length },
@@ -53,30 +86,30 @@ export function StudentCalendarPage() {
     { id: 'live', label: 'Live', count: studentCalendarEvents.filter((e) => e.type === 'live' || e.type === 'batch').length },
   ]
 
+  const changeMonth = (delta: number) => {
+    const next = shiftMonth(monthView, delta)
+    setMonthView(next)
+    setSelectedDay(defaultSelectedDay(next))
+  }
+
   return (
     <div className="animate-rise">
       <PageIntro
         eyebrow="Schedule"
         title="Learning Calendar"
         description="Coaching sessions, assignment deadlines, live classes, and batch events — all in one place."
-        action={
-          <>
-            <Button variant="secondary" size="md">Export to calendar</Button>
-            <Button variant="primary" size="md">Sync preferences</Button>
-          </>
-        }
       />
 
       <div className="stat-grid mb-6 sm:mb-8">
-        <StatTile label="This week" value={filtered.length} hint="Scheduled events" />
+        <StatTile label="This week" value={weekEvents.length} hint="Scheduled events" />
         <StatTile label="Coaching sessions" value={studentCalendarEvents.filter((e) => e.type === 'coaching').length} />
-        <StatTile label="Due this week" value={studentCalendarEvents.filter((e) => e.type === 'deadline').length} hint="Assignments & labs" />
+        <StatTile label="Due this week" value={weekEvents.filter((e) => e.type === 'deadline').length} hint="Assignments & labs" />
         <StatTile label="Live sessions" value={studentCalendarEvents.filter((e) => e.type === 'live' || e.type === 'batch').length} />
       </div>
 
       <TabBar tabs={filterTabs} active={filter} onChange={(id) => setFilter(id as CalendarEventType | 'all')} />
 
-      <div className="mb-4 flex gap-2">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
         {(['month', 'agenda'] as const).map((v) => (
           <button
             key={v}
@@ -91,14 +124,48 @@ export function StudentCalendarPage() {
 
       {view === 'month' ? (
         <div className="grid gap-6 lg:grid-cols-3">
-          <Panel title="June 2026" className="lg:col-span-2">
+          <Panel
+            title={formatMonthYear(monthView)}
+            className="lg:col-span-2"
+            action={
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => changeMonth(-1)}
+                  className="rounded-md px-2 py-1 text-xs font-semibold text-ink-3 hover:bg-stone-100 hover:text-ink"
+                  aria-label="Previous month"
+                >
+                  ←
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const now = currentMonthView()
+                    setMonthView(now)
+                    setSelectedDay(defaultSelectedDay(now))
+                  }}
+                  className="rounded-md px-2 py-1 text-xs font-semibold text-ink-3 hover:bg-stone-100 hover:text-ink"
+                >
+                  Today
+                </button>
+                <button
+                  type="button"
+                  onClick={() => changeMonth(1)}
+                  className="rounded-md px-2 py-1 text-xs font-semibold text-ink-3 hover:bg-stone-100 hover:text-ink"
+                  aria-label="Next month"
+                >
+                  →
+                </button>
+              </div>
+            }
+          >
             <div className="mb-2 grid grid-cols-7 gap-1 text-center text-xs font-semibold text-ink-3">
               {days.map((d) => <span key={d}>{d}</span>)}
             </div>
             <div className="grid grid-cols-7 gap-1">
-              {Array.from({ length: 35 }, (_, i) => {
-                const day = i - 2
-                const inMonth = day >= 1 && day <= 30
+              {Array.from({ length: paddedCells }, (_, i) => {
+                const day = i - startOffset + 1
+                const inMonth = day >= 1 && day <= daysInMonth
                 const hasEvent = inMonth && eventDays.has(day)
                 const isSelected = selectedDay === day
                 return (
@@ -122,9 +189,9 @@ export function StudentCalendarPage() {
             </div>
           </Panel>
 
-          <Panel title={selectedDay ? `Jun ${selectedDay} — Events` : 'Select a day'}>
+          <Panel title={selectedDay ? `${formatMonthYear(monthView).split(' ')[0]} ${selectedDay} — Events` : 'Select a day'}>
             {dayEvents.length === 0 ? (
-              <p className="text-sm text-ink-3 py-4 text-center">No events on this day.</p>
+              <p className="empty-inline py-8">No events on this day.</p>
             ) : (
               <ul className="space-y-3">
                 {dayEvents.map((e) => (
@@ -142,9 +209,11 @@ export function StudentCalendarPage() {
         <Panel title="Upcoming agenda">
           <div className="space-y-3">
             {filtered.length === 0 ? (
-              <p className="rounded-xl border border-dashed border-stone-300 bg-stone-50/50 px-6 py-12 text-center text-sm text-ink-3">
-                No events match this filter.
-              </p>
+              <EmptyState
+                icon="calendar"
+                title="No events match this filter"
+                description="Try a different filter or check back when new sessions and deadlines are scheduled."
+              />
             ) : (
               filtered.map((e) => (
                 <div key={e.id} className="flex flex-col gap-2 rounded-xl border border-stone-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -156,13 +225,10 @@ export function StudentCalendarPage() {
                       <p className="font-semibold text-ink">{e.title}</p>
                     </div>
                     <p className="mt-1 text-sm text-ink-3">
-                      {e.date.replace('2026-', 'Jun ').replace('-', ' ')} · {e.time}
+                      {formatIsoDate(e.date)} · {e.time}
                       {e.courseTitle ? ` · ${e.courseTitle}` : ''}
                     </p>
                   </div>
-                  {(e.type === 'coaching' || e.type === 'live' || e.type === 'batch') && (
-                    <Button variant="primary" size="sm" className="w-full sm:w-auto">Join session</Button>
-                  )}
                 </div>
               ))
             )}

@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth, type UserRole } from '../../contexts/AuthContext'
 import { getDashboardBasePath } from '../../data/dashboardData'
 import { ApiError } from '../../lib/api/errors'
+import { isSafeRedirectPath } from '../../lib/api/client'
 import { AuthLayout } from '../../layouts/AuthLayout'
 import { Button } from '../../components/ui/Button'
 
@@ -40,13 +41,9 @@ export function SignInPage({ role }: SignInPageProps) {
     try {
       await signIn(email, password, role)
       const redirectTo = locationState?.from
-      const safeRedirect =
-        redirectTo &&
-        redirectTo !== '/login' &&
-        !redirectTo.startsWith('/login/') &&
-        !redirectTo.startsWith('/register')
-          ? redirectTo
-          : getDashboardBasePath(role)
+      const safeRedirect = isSafeRedirectPath(redirectTo)
+        ? redirectTo
+        : getDashboardBasePath(role)
       navigate(safeRedirect, { replace: true })
     } catch (err) {
       if (err instanceof ApiError && err.status === 403) {
@@ -81,7 +78,7 @@ export function SignInPage({ role }: SignInPageProps) {
             id="email"
             type="email"
             autoComplete="email"
-            placeholder={role === 'instructor' ? 'instructor@example.com' : 'you@example.com'}
+            placeholder="you@company.com"
             className="input-field w-full"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -229,7 +226,7 @@ export function RegisterPage({ role }: RegisterPageProps) {
             id="email"
             type="email"
             autoComplete="email"
-            placeholder={role === 'instructor' ? 'instructor@example.com' : 'you@example.com'}
+            placeholder="you@company.com"
             className="input-field w-full"
             value={email}
             onChange={(e) => setEmail(e.target.value)}

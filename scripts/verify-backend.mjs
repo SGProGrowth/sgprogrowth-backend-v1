@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 /**
  * Backend API verification script (smoke + extended E2E).
- * Usage:
+ *
+ * Usage (from repo root):
  *   docker compose up -d
  *   cd backend && npx prisma migrate deploy && npm run db:seed
- *   npm run start:dev   # separate terminal
- *   node scripts/verify-backend.mjs
+ *   cd backend && npm run start:dev    # separate terminal
+ *   npm run verify:backend
  *
  * Optional env:
  *   API_URL=http://localhost:3000/api/v1
@@ -104,14 +105,20 @@ async function main() {
 
   // ── Infrastructure ──────────────────────────────────────────────
   try {
-    execSync('docker ps --filter name=sgpg-postgres --format "{{.Status}}"', { stdio: 'pipe' })
+    execSync('docker ps --filter name=sgpg-postgres --format "{{.Status}}"', {
+      stdio: 'pipe',
+      timeout: 5000,
+    })
     pass('Docker Postgres container running')
   } catch {
     fail('Docker Postgres container running', 'docker ps failed')
   }
 
   try {
-    execSync('docker exec sgpg-postgres pg_isready -U sgpg -d sgpg_lms', { stdio: 'pipe' })
+    execSync('docker exec sgpg-postgres pg_isready -U sgpg -d sgpg_lms', {
+      stdio: 'pipe',
+      timeout: 5000,
+    })
     pass('PostgreSQL accepting connections')
   } catch {
     fail('PostgreSQL accepting connections')

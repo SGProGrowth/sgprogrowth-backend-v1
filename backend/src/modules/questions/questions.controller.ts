@@ -16,9 +16,12 @@ import {
 } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
 import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger'
+import { Throttle } from '@nestjs/throttler'
 import { UserRole } from '@prisma/client'
 import type { Response } from 'express'
 import { CurrentUser, JwtPayload, Roles } from '../../common/decorators/auth.decorator'
+import { validateCsvImportFile, validateExcelImportFile } from '../../common/import-file.validation'
+import { ThrottleLimits } from '../../config/throttle.constants'
 import {
   CreateQuestionCategoryDto,
   CreateQuestionDto,
@@ -27,6 +30,7 @@ import {
 } from '../../common/dto/question.dto'
 import { ApiMessageDto } from '../../common/dto/auth.dto'
 import { JwtAuthGuard, RolesGuard } from '../../common/guards/auth.guards'
+import { multerMemoryOptions } from '../../common/multer-options'
 import { QuestionsImportExportService } from './questions-import-export.service'
 import { QuestionsService } from './questions.service'
 
@@ -62,7 +66,7 @@ export class QuestionsController {
   @Get('tags/list')
   @ApiOperation({ summary: 'List question tags' })
   tags(@CurrentUser() user: JwtPayload) {
-    return this.questionsService.listTags(user.sub)
+    return this.questionsService.listTags()
   }
 
   @Get('export/csv')
@@ -85,19 +89,23 @@ export class QuestionsController {
 
   @Post('import/csv')
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', multerMemoryOptions))
+  @Throttle({ default: ThrottleLimits.upload })
   @ApiOperation({ summary: 'Import questions from CSV' })
   importCsv(@CurrentUser() user: JwtPayload, @UploadedFile() file: Express.Multer.File) {
     if (!file) throw new BadRequestException('File is required')
+    validateCsvImportFile(file)
     return this.importExport.importCsv(user.sub, file, user.email, user.email)
   }
 
   @Post('import/excel')
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', multerMemoryOptions))
+  @Throttle({ default: ThrottleLimits.upload })
   @ApiOperation({ summary: 'Import questions from Excel' })
   importExcel(@CurrentUser() user: JwtPayload, @UploadedFile() file: Express.Multer.File) {
     if (!file) throw new BadRequestException('File is required')
+    validateExcelImportFile(file)
     return this.importExport.importExcel(user.sub, file, user.email, user.email)
   }
 
@@ -167,7 +175,7 @@ export class QuestionsController {
 
   @Post(':id/attachments')
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', multerMemoryOptions))
   @ApiOperation({ summary: 'Upload question attachment' })
   uploadAttachment(
     @Param('id') id: string,

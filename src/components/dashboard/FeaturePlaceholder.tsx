@@ -13,7 +13,7 @@ interface FeaturePlaceholderProps {
 export function FeaturePlaceholder({ icon, title, description, features, action }: FeaturePlaceholderProps) {
   return (
     <div className="animate-rise">
-      <div className="rounded-lg border border-stone-200 bg-white overflow-hidden">
+      <div className="rounded-xl border border-stone-200 bg-white overflow-hidden shadow-[0_1px_2px_rgba(10,10,10,0.04)]">
         <div className="border-b border-stone-200 bg-stone-50 px-6 py-8 md:px-8">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex items-start gap-4">

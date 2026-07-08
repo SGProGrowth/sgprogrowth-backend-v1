@@ -187,7 +187,7 @@ export function InstructorBulkImportPage() {
           </div>
 
           <Panel title="Import preview" noPadding>
-            <div className="space-y-3 p-4 md:hidden">
+            <div className="space-y-3 p-4 lg:hidden">
               {previewRows.map((row) => (
                 <MobileDataCard
                   key={row.row}
@@ -207,7 +207,7 @@ export function InstructorBulkImportPage() {
               ))}
             </div>
 
-            <ResponsiveTable className="hidden md:block">
+            <ResponsiveTable className="hidden lg:block">
               <table className="w-full min-w-[680px] text-sm">
                 <thead>
                   <tr className="border-b border-stone-100 bg-stone-50 text-left">

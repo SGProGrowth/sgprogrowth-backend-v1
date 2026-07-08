@@ -61,7 +61,7 @@ export function LoginLandingPage() {
 
       <p className="mt-8 text-center text-sm text-ink-3">
         Don&apos;t have an account?{' '}
-        <Link to="/register" className="font-semibold text-forest-800 hover:text-forest-900">
+        <Link to="/register" className="action-link inline-flex">
           Create one free
         </Link>
       </p>
@@ -104,7 +104,7 @@ export function RegisterLandingPage() {
 
       <p className="mt-8 text-center text-sm text-ink-3">
         Already have an account?{' '}
-        <Link to="/login" className="font-semibold text-forest-800 hover:text-forest-900">
+        <Link to="/login" className="action-link inline-flex">
           Sign in
         </Link>
       </p>

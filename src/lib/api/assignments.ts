@@ -1,5 +1,4 @@
-import { getApiBaseUrl } from './client'
-import { getAccessToken } from './tokenStorage'
+import { authorizedDownload, authorizedFetch, authorizedMultipart } from './client'
 import type { PaginatedResponse } from './courses'
 import type { Assignment } from '../../data/studentData'
 import type { InstructorAssignment } from '../../data/instructorData'
@@ -62,37 +61,6 @@ export interface CreateAssignmentInput {
   maxFileSizeBytes?: number
 }
 
-async function authFetch(path: string, init: RequestInit = {}) {
-  const token = getAccessToken()
-  const headers = new Headers(init.headers)
-  headers.set('Accept', 'application/json')
-  if (token) headers.set('Authorization', `Bearer ${token}`)
-
-  const res = await fetch(`${getApiBaseUrl()}${path}`, { ...init, headers })
-  const payload = await res.json().catch(() => ({}))
-  if (!res.ok) {
-    const message =
-      (payload as { message?: string | string[] }).message ?? `Request failed (${res.status})`
-    throw new Error(Array.isArray(message) ? message.join(', ') : String(message))
-  }
-  return payload
-}
-
-async function authMultipart(path: string, method: string, form: FormData) {
-  const token = getAccessToken()
-  const headers: Record<string, string> = { Accept: 'application/json' }
-  if (token) headers.Authorization = `Bearer ${token}`
-
-  const res = await fetch(`${getApiBaseUrl()}${path}`, { method, headers, body: form })
-  const payload = await res.json().catch(() => ({}))
-  if (!res.ok) {
-    const message =
-      (payload as { message?: string | string[] }).message ?? `Request failed (${res.status})`
-    throw new Error(Array.isArray(message) ? message.join(', ') : String(message))
-  }
-  return payload
-}
-
 export function fetchInstructorAssignments(params?: {
   page?: number
   pageSize?: number
@@ -107,7 +75,7 @@ export function fetchInstructorAssignments(params?: {
   if (params?.course) qs.set('course', params.course)
   if (params?.status) qs.set('status', params.status)
   const query = qs.toString()
-  return authFetch(`/assignments/mine${query ? `?${query}` : ''}`) as Promise<
+  return authorizedFetch(`/assignments/mine${query ? `?${query}` : ''}`) as Promise<
     PaginatedResponse<InstructorAssignment>
   >
 }
@@ -124,17 +92,17 @@ export function fetchStudentAssignments(params?: {
   if (params?.q) qs.set('q', params.q)
   if (params?.course) qs.set('course', params.course)
   const query = qs.toString()
-  return authFetch(`/assignments/me${query ? `?${query}` : ''}`) as Promise<
+  return authorizedFetch(`/assignments/me${query ? `?${query}` : ''}`) as Promise<
     PaginatedResponse<Assignment & { submissionStatus?: string; isOverdue?: boolean; dueSoon?: boolean }>
   >
 }
 
 export function fetchAssignment(id: string) {
-  return authFetch(`/assignments/${id}`) as Promise<AssignmentDetail>
+  return authorizedFetch(`/assignments/${id}`) as Promise<AssignmentDetail>
 }
 
 export function createAssignment(input: CreateAssignmentInput) {
-  return authFetch('/assignments', {
+  return authorizedFetch('/assignments', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
@@ -142,7 +110,7 @@ export function createAssignment(input: CreateAssignmentInput) {
 }
 
 export function updateAssignment(id: string, input: Partial<CreateAssignmentInput>) {
-  return authFetch(`/assignments/${id}`, {
+  return authorizedFetch(`/assignments/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
@@ -150,15 +118,15 @@ export function updateAssignment(id: string, input: Partial<CreateAssignmentInpu
 }
 
 export function deleteAssignment(id: string) {
-  return authFetch(`/assignments/${id}`, { method: 'DELETE' })
+  return authorizedFetch(`/assignments/${id}`, { method: 'DELETE' })
 }
 
 export function publishAssignment(id: string) {
-  return authFetch(`/assignments/${id}/publish`, { method: 'POST' })
+  return authorizedFetch(`/assignments/${id}/publish`, { method: 'POST' })
 }
 
 export function unpublishAssignment(id: string) {
-  return authFetch(`/assignments/${id}/unpublish`, { method: 'POST' })
+  return authorizedFetch(`/assignments/${id}/unpublish`, { method: 'POST' })
 }
 
 export function fetchSubmissions(assignmentId: string, params?: { q?: string; status?: string; page?: number }) {
@@ -167,7 +135,7 @@ export function fetchSubmissions(assignmentId: string, params?: { q?: string; st
   if (params?.status) qs.set('status', params.status)
   if (params?.page) qs.set('page', String(params.page))
   const query = qs.toString()
-  return authFetch(`/assignments/${assignmentId}/submissions${query ? `?${query}` : ''}`) as Promise<
+  return authorizedFetch(`/assignments/${assignmentId}/submissions${query ? `?${query}` : ''}`) as Promise<
     PaginatedResponse<InstructorSubmission>
   >
 }
@@ -177,7 +145,7 @@ export function gradeSubmission(
   submissionId: string,
   input: { score: number; feedback?: string; returnToStudent?: boolean },
 ) {
-  return authFetch(`/assignments/${assignmentId}/submissions/${submissionId}/grade`, {
+  return authorizedFetch(`/assignments/${assignmentId}/submissions/${submissionId}/grade`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
@@ -194,7 +162,7 @@ export function submitAssignment(
   for (const file of input.files ?? []) {
     form.append('files', file)
   }
-  return authMultipart(
+  return authorizedMultipart(
     `/assignments/${assignmentId}/submissions`,
     replace ? 'PUT' : 'POST',
     form,
@@ -222,22 +190,6 @@ export function mapApiAssignmentToStudent(row: Assignment & { submissionStatus?:
   }
 }
 
-export function downloadUrl(path: string) {
-  const token = getAccessToken()
-  return `${getApiBaseUrl()}${path}${token ? '' : ''}`
-}
-
 export async function downloadAuthenticatedFile(apiPath: string, filename: string) {
-  const token = getAccessToken()
-  const res = await fetch(`${getApiBaseUrl()}${apiPath}`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  })
-  if (!res.ok) throw new Error('Download failed')
-  const blob = await res.blob()
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  a.click()
-  URL.revokeObjectURL(url)
+  return authorizedDownload(apiPath, filename)
 }

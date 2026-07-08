@@ -3,7 +3,7 @@ import { Button } from '../ui/Button'
 
 const statusConfig: Record<AssignmentStatus, { label: string; className: string }> = {
   pending: { label: 'Pending', className: 'bg-gold-50 text-gold-700' },
-  submitted: { label: 'Submitted', className: 'bg-blue-50 text-blue-700' },
+  submitted: { label: 'Submitted', className: 'bg-stone-100 text-ink-2' },
   graded: { label: 'Graded', className: 'bg-forest-50 text-forest-800' },
   overdue: { label: 'Overdue', className: 'bg-red-50 text-red-700' },
 }

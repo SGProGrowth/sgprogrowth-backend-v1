@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useStudentDashboard } from '../../../hooks/useStudentDashboard'
+import { useStudentDashboard } from '../../../contexts/DashboardWorkspaceContext'
 import { fetchStudentAnalytics, type StudentAnalytics } from '../../../lib/api/analytics'
-import { downloadStudentProgressReport } from '../../../lib/api/reports'
+import { downloadStudentProgressReport } from '../../../lib/api/analytics'
 import { fetchCourseProgressDetail, type CourseProgressDetail } from '../../../lib/api/progress'
 import { CourseModuleProgress, MilestoneTimeline } from '../../../components/student/MilestoneTimeline'
 import { CircularProgress } from '../../../components/student/ProgressBar'
+import { LoadingState } from '../../../components/ui/LoadingState'
+import { AlertBanner } from '../../../components/ui/AlertBanner'
+import { getFriendlyErrorMessage } from '../../../lib/api/errors'
 import { PageIntro, Panel, StatTile } from '../../../components/student/Panel'
 import { Button } from '../../../components/ui/Button'
 
@@ -15,9 +18,11 @@ export function StudentProgressPage() {
   const [courseDetails, setCourseDetails] = useState<CourseProgressDetail[]>([])
   const [analytics, setAnalytics] = useState<StudentAnalytics | null>(null)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
+    setError(null)
     try {
       const [studentAnalytics, ...details] = await Promise.all([
         fetchStudentAnalytics(),
@@ -25,9 +30,10 @@ export function StudentProgressPage() {
       ])
       setAnalytics(studentAnalytics)
       setCourseDetails(details)
-    } catch {
+    } catch (err) {
       setAnalytics(null)
       setCourseDetails([])
+      setError(getFriendlyErrorMessage(err, 'Unable to load progress details.'))
     } finally {
       setLoading(false)
     }
@@ -78,6 +84,15 @@ export function StudentProgressPage() {
         <StatTile label="Certificates" value={analytics?.certificates.length ?? 0} hint="Earned credentials" />
       </div>
 
+      {error && (
+        <AlertBanner variant="error" className="mb-6">
+          {error}
+          <button type="button" className="action-link ml-2 inline-flex" onClick={() => void load()}>
+            Try again
+          </button>
+        </AlertBanner>
+      )}
+
       <div className="grid gap-6 lg:grid-cols-5 mb-8">
         <Panel title="Overall completion" className="lg:col-span-2">
           <div className="flex flex-col items-center py-4">
@@ -125,7 +140,7 @@ export function StudentProgressPage() {
       <div>
         <h2 className="mb-4 font-display text-lg font-bold text-ink">Course progress</h2>
         {loading && !courseProgressDetails.length ? (
-          <p className="text-sm text-ink-3 py-8 text-center">Loading progress…</p>
+          <LoadingState label="Loading progress…" />
         ) : courseProgressDetails.length === 0 ? (
           <p className="text-sm text-ink-3">Enroll in a course to track detailed progress.</p>
         ) : (

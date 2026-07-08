@@ -1,8 +1,12 @@
 import { Injectable } from '@nestjs/common'
-import { ConfigService } from '@nestjs/config'
 import PDFDocument from 'pdfkit'
 import QRCode from 'qrcode'
 import { Readable } from 'stream'
+import {
+  CertificateDesign,
+  CertificateFieldLayout,
+  mergeCertificateDesign,
+} from './certificate-design.constants'
 
 export type CertificatePdfInput = {
   organizationName: string
@@ -15,122 +19,160 @@ export type CertificatePdfInput = {
   completionDate: Date
   issuedAt: Date
   verificationUrl: string
-  design?: {
-    primaryColor?: string
-    accentColor?: string
-    borderStyle?: string
-  }
+  backgroundBuffer?: Buffer | null
+  design?: CertificateDesign | Record<string, unknown> | null
 }
 
 @Injectable()
 export class CertificatePdfService {
-  constructor(private config: ConfigService) {}
+  private formatDate(date: Date) {
+    return date.toLocaleDateString('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+    })
+  }
+
+  private drawField(
+    doc: InstanceType<typeof PDFDocument>,
+    layout: CertificateFieldLayout,
+    text: string,
+    pageWidth: number,
+    defaultColor: string,
+    fontWeight: 'normal' | 'bold' = 'normal',
+  ) {
+    const width = layout.width ?? pageWidth - 144
+    const x = layout.align === 'center' ? 0 : layout.x
+    const options = {
+      width: layout.align === 'center' ? pageWidth : width,
+      align: layout.align ?? 'left',
+    } as const
+
+    doc
+      .font(layout.fontWeight === 'bold' || fontWeight === 'bold' ? 'Helvetica-Bold' : 'Helvetica')
+      .fontSize(layout.fontSize ?? 12)
+      .fillColor(layout.color ?? defaultColor)
+      .text(text, x, layout.y, options)
+  }
 
   async generate(input: CertificatePdfInput): Promise<Buffer> {
-    const qrBuffer = await QRCode.toBuffer(input.verificationUrl, {
-      width: 140,
-      margin: 1,
-    })
+    if (!input.backgroundBuffer?.length) {
+      throw new Error('Certificate background template is required')
+    }
+
+    const design = mergeCertificateDesign(input.design)
+    const pageWidth = design.pageWidth ?? 842
+    const pageHeight = design.pageHeight ?? 595
+    const primary = design.primaryColor ?? '#062D6F'
+    const fields = design.fields ?? {}
+
+    const qrBuffer = design.showQrCode
+      ? await QRCode.toBuffer(input.verificationUrl, { width: 140, margin: 1 })
+      : null
 
     return new Promise((resolve, reject) => {
       const chunks: Buffer[] = []
-      const primary = input.design?.primaryColor ?? '#1B4332'
-      const accent = input.design?.accentColor ?? '#D4A017'
-
       const doc = new PDFDocument({
-        size: 'A4',
-        layout: 'landscape',
-        margin: 48,
+        size: [pageWidth, pageHeight],
+        margin: 0,
       })
 
       doc.on('data', (chunk: Buffer) => chunks.push(chunk))
       doc.on('end', () => resolve(Buffer.concat(chunks)))
       doc.on('error', reject)
 
-      const { width, height } = doc.page
-      doc.rect(24, 24, width - 48, height - 48).lineWidth(3).stroke(primary)
-      doc.rect(32, 32, width - 64, height - 64).lineWidth(1).stroke(accent)
+      doc.image(input.backgroundBuffer!, 0, 0, { width: pageWidth, height: pageHeight })
 
-      doc
-        .font('Helvetica-Bold')
-        .fontSize(11)
-        .fillColor(primary)
-        .text(input.organizationName.toUpperCase(), 0, 56, { align: 'center' })
+      if (fields.organizationName) {
+        this.drawField(
+          doc,
+          { ...fields.organizationName, fontWeight: 'bold', color: fields.organizationName.color ?? primary },
+          input.organizationName.toUpperCase(),
+          pageWidth,
+          primary,
+          'bold',
+        )
+      }
 
-      doc
-        .font('Helvetica')
-        .fontSize(10)
-        .fillColor('#666666')
-        .text('Certificate of Completion', 0, 78, { align: 'center' })
+      if (fields.subtitle) {
+        this.drawField(doc, fields.subtitle, 'Certificate of Completion', pageWidth, '#666666')
+      }
 
-      doc
-        .font('Helvetica-Bold')
-        .fontSize(28)
-        .fillColor('#111111')
-        .text(input.studentName, 0, 130, { align: 'center' })
+      if (fields.studentName) {
+        this.drawField(doc, fields.studentName, input.studentName, pageWidth, '#111111', 'bold')
+      }
 
-      doc
-        .font('Helvetica')
-        .fontSize(12)
-        .fillColor('#444444')
-        .text('has successfully completed', 0, 175, { align: 'center' })
+      if (fields.completionLine) {
+        this.drawField(doc, fields.completionLine, 'has successfully completed', pageWidth, '#444444')
+      }
 
-      doc
-        .font('Helvetica-Bold')
-        .fontSize(20)
-        .fillColor(primary)
-        .text(input.courseTitle, 72, 205, { align: 'center', width: width - 144 })
+      if (fields.courseTitle) {
+        this.drawField(doc, fields.courseTitle, input.courseTitle, pageWidth, primary, 'bold')
+      }
 
-      doc
-        .font('Helvetica')
-        .fontSize(11)
-        .fillColor('#444444')
-        .text(`Instructor: ${input.instructorName}`, 0, 265, { align: 'center' })
+      if (fields.instructor) {
+        this.drawField(doc, fields.instructor, `Instructor: ${input.instructorName}`, pageWidth, '#444444')
+      }
 
-      doc.text(
-        `Completion date: ${input.completionDate.toLocaleDateString('en-US', {
-          month: 'long',
-          day: 'numeric',
-          year: 'numeric',
-        })}`,
-        0,
-        285,
-        { align: 'center' },
-      )
+      if (fields.completionDate) {
+        this.drawField(
+          doc,
+          fields.completionDate,
+          `Completion date: ${this.formatDate(input.completionDate)}`,
+          pageWidth,
+          '#444444',
+        )
+      }
 
-      doc.text(
-        `Issue date: ${input.issuedAt.toLocaleDateString('en-US', {
-          month: 'long',
-          day: 'numeric',
-          year: 'numeric',
-        })}`,
-        0,
-        302,
-        { align: 'center' },
-      )
+      if (fields.issueDate) {
+        this.drawField(
+          doc,
+          fields.issueDate,
+          `Issue date: ${this.formatDate(input.issuedAt)}`,
+          pageWidth,
+          '#444444',
+        )
+      }
 
-      doc
-        .moveTo(width / 2 - 120, 350)
-        .lineTo(width / 2 + 120, 350)
-        .stroke('#999999')
-      doc
-        .font('Helvetica')
-        .fontSize(9)
-        .fillColor('#666666')
-        .text('Authorized Digital Signature', width / 2 - 120, 355, {
-          width: 240,
-          align: 'center',
+      if (design.showSignature && fields.signature) {
+        const sig = fields.signature
+        doc
+          .moveTo(sig.x, sig.y - 5)
+          .lineTo(sig.x + (sig.width ?? 240), sig.y - 5)
+          .stroke('#999999')
+        this.drawField(doc, sig, 'Authorized Digital Signature', pageWidth, '#666666')
+      }
+
+      if (fields.certificateNumber) {
+        this.drawField(
+          doc,
+          fields.certificateNumber,
+          `Certificate No: ${input.certificateNumber}`,
+          pageWidth,
+          '#888888',
+        )
+      }
+
+      if (fields.credentialId) {
+        this.drawField(
+          doc,
+          fields.credentialId,
+          `Credential ID: ${input.credentialId}`,
+          pageWidth,
+          '#888888',
+        )
+      }
+
+      if (fields.verifyUrl) {
+        this.drawField(doc, fields.verifyUrl, `Verify: ${input.verificationUrl}`, pageWidth, '#888888')
+      }
+
+      if (design.showQrCode && qrBuffer && fields.qrCode) {
+        doc.image(qrBuffer, fields.qrCode.x, fields.qrCode.y, {
+          width: fields.qrCode.size,
+          height: fields.qrCode.size,
         })
-
-      doc
-        .font('Helvetica')
-        .fontSize(8)
-        .fillColor('#888888')
-        .text(`Certificate No: ${input.certificateNumber}`, 56, height - 72)
-      doc.text(`Credential ID: ${input.credentialId}`, 56, height - 58)
-      doc.text(`Verify: ${input.verificationUrl}`, 56, height - 44, { width: width - 220 })
-
-      doc.image(qrBuffer, width - 170, height - 150, { width: 100, height: 100 })
+      }
 
       doc.end()
     })

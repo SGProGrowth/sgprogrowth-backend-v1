@@ -2,6 +2,8 @@ import { Link } from 'react-router-dom'
 import { footerLinks } from '../../data/homepageData'
 import { resolveMarketingHref } from '../../lib/navigation'
 import { Container } from './Container'
+import { BrandLogo } from '../brand/BrandLogo'
+import { branding } from '../../config/branding'
 
 export function Footer() {
   return (
@@ -9,19 +11,14 @@ export function Footer() {
       <Container className="py-14 md:py-16">
         <div className="grid gap-10 lg:grid-cols-12">
           <div className="lg:col-span-4">
-            <Link to="/" className="inline-flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-md bg-forest-800">
-                <span className="text-xs font-bold text-white">SG</span>
-              </div>
-              <span className="font-display text-[15px] font-bold text-ink">SG Pro Growth</span>
-            </Link>
+            <BrandLogo variant="footer" />
             <p className="mt-4 max-w-xs text-sm text-ink-3 leading-relaxed">
-              Coaching before you learn. Personalised career guidance and enterprise programs for measurable outcomes.
+              {branding.description}
             </p>
             <div className="mt-6 space-y-2 text-sm">
-              <p><span className="text-ink-4">Email </span><a href="mailto:contact@sgprogrowth.com" className="text-ink font-medium hover:text-forest-800 transition-colors">contact@sgprogrowth.com</a></p>
-              <p><span className="text-ink-4">WhatsApp </span><a href="https://wa.me/919152315130" className="text-ink font-medium hover:text-forest-800 transition-colors">+91 91523 15130</a></p>
-              <p className="text-xs text-ink-3 leading-relaxed pt-1">606 F wing, Hubtown Greenwoods, Vartak Nagar, Thane, MH 400606</p>
+              <p><span className="text-ink-4">Email </span><a href={`mailto:${branding.contactEmail}`} className="text-ink font-medium hover:text-forest-800 transition-colors">{branding.contactEmail}</a></p>
+              <p><span className="text-ink-4">WhatsApp </span><a href={branding.whatsappUrl} className="text-ink font-medium hover:text-forest-800 transition-colors">{branding.contactPhone}</a></p>
+              <p className="text-xs text-ink-3 leading-relaxed pt-1">{branding.addressShort}</p>
             </div>
           </div>
 
@@ -54,7 +51,7 @@ export function Footer() {
         </div>
 
         <div className="mt-12 pt-8 border-t border-stone-200 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-xs text-ink-4">© 2026 SG Pro Growth. All rights reserved.</p>
+          <p className="text-xs text-ink-4">{branding.copyright}</p>
           <a href="/#top" className="text-xs font-semibold text-forest-800 hover:text-forest-900 transition-colors">Back to top ↑</a>
         </div>
       </Container>

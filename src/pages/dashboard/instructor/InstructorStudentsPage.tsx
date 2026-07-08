@@ -55,7 +55,7 @@ export function InstructorStudentsPage() {
       ) : (
         <>
           {/* Mobile card layout */}
-          <div className="space-y-3 md:hidden">
+          <div className="space-y-3 lg:hidden">
             {filtered.map((s) => (
               <MobileDataCard
                 key={s.id}
@@ -80,7 +80,7 @@ export function InstructorStudentsPage() {
                   { label: 'Last active', value: s.lastActive },
                 ]}
                 actions={
-                  <Link to={`/instructor/students/${s.id}`} className="text-sm font-semibold text-forest-800 min-h-11 inline-flex items-center">
+                  <Link to={`/instructor/students/${s.id}`} className="action-link">
                     View progress
                   </Link>
                 }
@@ -89,7 +89,7 @@ export function InstructorStudentsPage() {
           </div>
 
           {/* Desktop table */}
-          <ResponsiveTable className="hidden md:block rounded-xl border border-stone-200 bg-white">
+          <ResponsiveTable className="hidden lg:block rounded-xl border border-stone-200 bg-white">
             <table className="w-full min-w-[720px] text-sm">
               <thead>
                 <tr className="border-b border-stone-100 bg-stone-50 text-left">
@@ -123,7 +123,7 @@ export function InstructorStudentsPage() {
                     <td className="px-5 py-4 text-ink-3">{s.lastActive}</td>
                     <td className="px-5 py-4"><StatusBadge status={s.status} /></td>
                     <td className="px-5 py-4">
-                      <Link to={`/instructor/students/${s.id}`} className="text-sm font-semibold text-forest-800">View progress</Link>
+                      <Link to={`/instructor/students/${s.id}`} className="action-link">View progress</Link>
                     </td>
                   </tr>
                 ))}
@@ -160,8 +160,8 @@ export function InstructorStudentProgressPage() {
         </div>
         <ProgressBar value={student.progress} size="lg" />
         <div className="mt-6 grid gap-3 sm:grid-cols-2">
-          <div className="rounded-lg bg-stone-50 p-4"><p className="text-xs text-ink-3">Modules completed</p><p className="font-bold text-ink">7 / 10</p></div>
-          <div className="rounded-lg bg-stone-50 p-4"><p className="text-xs text-ink-3">Coaching sessions</p><p className="font-bold text-ink">4 attended</p></div>
+          <div className="rounded-lg bg-stone-50 p-4"><p className="text-xs text-ink-3">Course</p><p className="font-bold text-ink">{student.courseTitle}</p></div>
+          <div className="rounded-lg bg-stone-50 p-4"><p className="text-xs text-ink-3">Last active</p><p className="font-bold text-ink">{student.lastActive}</p></div>
         </div>
       </div>
       <Link to="/instructor/students" className="mt-6 inline-block text-sm font-semibold text-forest-800">← Back to roster</Link>

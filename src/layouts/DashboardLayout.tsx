@@ -1,11 +1,13 @@
 import { Suspense, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import type { UserRole } from '../contexts/AuthContext'
-import { DashboardWorkspaceProvider } from '../contexts/DashboardWorkspaceContext'
+import { DashboardWorkspaceProvider, useDashboardWorkspaceContext } from '../contexts/DashboardWorkspaceContext'
 import { studentPageMeta } from '../data/studentData'
 import { instructorPageMeta } from '../data/instructorData'
 import { DashboardHeader, DashboardSidebar } from '../components/dashboard/DashboardSidebar'
 import { LoadingState } from '../components/ui/LoadingState'
+import { AlertBanner } from '../components/ui/AlertBanner'
+import { Button } from '../components/ui/Button'
 
 function getPageMeta(pathname: string, role: UserRole) {
   const metaMap = role === 'student' ? studentPageMeta : instructorPageMeta
@@ -29,13 +31,21 @@ function getPageMeta(pathname: string, role: UserRole) {
 }
 
 export function DashboardLayout({ role }: { role: UserRole }) {
+  return (
+    <DashboardWorkspaceProvider role={role}>
+      <DashboardShell role={role} />
+    </DashboardWorkspaceProvider>
+  )
+}
+
+function DashboardShell({ role }: { role: UserRole }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const { pathname } = useLocation()
   const meta = getPageMeta(pathname, role)
+  const { error, refresh, isRefreshing } = useDashboardWorkspaceContext()
 
   return (
-    <DashboardWorkspaceProvider role={role}>
-      <div className="flex min-h-screen overflow-x-hidden bg-stone-100/80">
+    <div className="flex min-h-screen overflow-x-hidden bg-stone-100/80">
         <a
           href="#dashboard-main"
           className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:bg-forest-800 focus:px-4 focus:py-2 focus:text-white"
@@ -56,6 +66,14 @@ export function DashboardLayout({ role }: { role: UserRole }) {
 
           <main id="dashboard-main" className="flex-1 overflow-x-hidden overflow-y-auto">
             <div className="mx-auto max-w-7xl px-3 py-4 sm:px-4 sm:py-6 md:px-6 md:py-8 lg:px-8">
+              {error && (
+                <AlertBanner variant="warning" className="mb-4">
+                  {error}
+                  <Button type="button" variant="ghost" size="sm" className="ml-2 !min-h-9" onClick={refresh} disabled={isRefreshing}>
+                    {isRefreshing ? 'Retrying…' : 'Retry'}
+                  </Button>
+                </AlertBanner>
+              )}
               <Suspense fallback={<LoadingState label="Loading page…" />}>
                 <Outlet />
               </Suspense>
@@ -63,6 +81,5 @@ export function DashboardLayout({ role }: { role: UserRole }) {
           </main>
         </div>
       </div>
-    </DashboardWorkspaceProvider>
   )
 }

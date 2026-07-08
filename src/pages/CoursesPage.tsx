@@ -9,9 +9,10 @@ import { CourseCard } from '../components/ui/CourseCard'
 import { Button } from '../components/ui/Button'
 import { Pagination } from '../components/ui/Pagination'
 import { LoadingState } from '../components/ui/LoadingState'
+import { RequestError } from '../components/ui/RequestError'
 import { fetchCourseCatalog, mapCatalogCourseToUi } from '../lib/api/courses'
 import { fetchCategories, mapCategoryToUi } from '../lib/api/categories'
-import { getErrorMessage } from '../lib/api/errors'
+import { getFriendlyErrorMessage } from '../lib/api/errors'
 
 const PAGE_SIZE = 9
 
@@ -63,7 +64,7 @@ export default function CoursesPage() {
         }
       })
       .catch((err) => {
-        if (!cancelled) setError(getErrorMessage(err))
+        if (!cancelled) setError(getFriendlyErrorMessage(err, 'Unable to load courses.'))
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -186,10 +187,28 @@ export default function CoursesPage() {
         {loading ? (
           <LoadingState label="Loading courses…" />
         ) : error ? (
-          <div className="rounded-xl border border-red-200 bg-red-50 px-6 py-12 text-center">
-            <p className="font-display text-lg font-bold text-ink">Unable to load courses</p>
-            <p className="mt-2 text-sm text-ink-3">{error}</p>
-          </div>
+          <RequestError
+            title="Unable to load courses"
+            message={error}
+            onRetry={() => {
+              setError(null)
+              setLoading(true)
+              fetchCourseCatalog({
+                page,
+                pageSize: PAGE_SIZE,
+                q: query.trim() || undefined,
+                category: category !== 'all' ? category : undefined,
+                sort: sort === 'duration' ? 'duration' : sort,
+              })
+                .then((res) => {
+                  setCourses(res.data.map(mapCatalogCourseToUi))
+                  setTotal(res.meta.total)
+                  setError(null)
+                })
+                .catch((err) => setError(getFriendlyErrorMessage(err, 'Unable to load courses.')))
+                .finally(() => setLoading(false))
+            }}
+          />
         ) : courses.length === 0 ? (
           <div className="rounded-xl border border-stone-200 bg-stone-50 px-6 py-12 text-center">
             <p className="font-display text-lg font-bold text-ink">No courses match your filters</p>

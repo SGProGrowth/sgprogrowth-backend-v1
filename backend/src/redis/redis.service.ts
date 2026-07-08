@@ -17,10 +17,13 @@ export class RedisService implements OnModuleDestroy {
     this.client = new Redis(url, {
       maxRetriesPerRequest: null,
       enableReadyCheck: true,
-      lazyConnect: false,
+      lazyConnect: true,
     })
     this.client.on('error', (err) => this.logger.error(`Redis error: ${err.message}`))
-    this.logger.log('Redis connected')
+    void this.client.connect().catch((err) => {
+      this.logger.warn(`Redis unavailable — optional features degraded: ${err.message}`)
+    })
+    this.logger.log('Redis client configured')
   }
 
   isAvailable(): boolean {
@@ -38,15 +41,24 @@ export class RedisService implements OnModuleDestroy {
 
   async get(key: string): Promise<string | null> {
     if (!this.client) return null
-    return this.client.get(key)
+    try {
+      return await this.client.get(key)
+    } catch (err) {
+      this.logger.warn(`Redis get failed for ${key}: ${err instanceof Error ? err.message : err}`)
+      return null
+    }
   }
 
   async set(key: string, value: string, ttlSeconds?: number): Promise<void> {
     if (!this.client) return
-    if (ttlSeconds) {
-      await this.client.set(key, value, 'EX', ttlSeconds)
-    } else {
-      await this.client.set(key, value)
+    try {
+      if (ttlSeconds) {
+        await this.client.set(key, value, 'EX', ttlSeconds)
+      } else {
+        await this.client.set(key, value)
+      }
+    } catch (err) {
+      this.logger.warn(`Redis set failed for ${key}: ${err instanceof Error ? err.message : err}`)
     }
   }
 

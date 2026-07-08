@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react'
-import { useStudentDashboard } from '../../../hooks/useStudentDashboard'
+import { useStudentDashboard } from '../../../contexts/DashboardWorkspaceContext'
 import { NotificationItem } from '../../../components/student/NotificationItem'
-import { PageIntro, TabBar } from '../../../components/student/Panel'
+import { PageIntro, TabBar, EmptyState } from '../../../components/student/Panel'
+import { AlertBanner } from '../../../components/ui/AlertBanner'
+import { markAllStudentNotificationsRead, markStudentNotificationRead } from '../../../lib/api/profile'
 
 export function StudentNotificationsPage() {
-  const { workspace } = useStudentDashboard()
+  const { workspace, refresh } = useStudentDashboard()
   const [items, setItems] = useState(workspace?.notifications ?? [])
   const [tab, setTab] = useState('all')
+  const [actionError, setActionError] = useState('')
 
   useEffect(() => {
     setItems(workspace?.notifications ?? [])
@@ -24,11 +27,19 @@ export function StudentNotificationsPage() {
   const displayed = tab === 'unread' ? unread : tab === 'read' ? read : items
 
   const markRead = (id: string) => {
+    setActionError('')
     setItems((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)))
+    void markStudentNotificationRead(id)
+      .then(() => refresh())
+      .catch(() => setActionError('Could not mark notification as read. Please try again.'))
   }
 
   const markAllRead = () => {
+    setActionError('')
     setItems((prev) => prev.map((n) => ({ ...n, read: true })))
+    void markAllStudentNotificationsRead()
+      .then(() => refresh())
+      .catch(() => setActionError('Could not mark all notifications as read. Please try again.'))
   }
 
   return (
@@ -39,23 +50,37 @@ export function StudentNotificationsPage() {
         description="Course updates, coaching reminders, assignment deadlines, and platform announcements."
         action={
           unread.length > 0 ? (
-            <button
-              type="button"
-              onClick={markAllRead}
-              className="text-sm font-semibold text-forest-800 hover:text-forest-900"
-            >
+            <button type="button" onClick={markAllRead} className="action-link">
               Mark all as read
             </button>
           ) : undefined
         }
       />
 
+      {actionError && (
+        <AlertBanner variant="error" className="mb-4">
+          {actionError}
+        </AlertBanner>
+      )}
+
       <TabBar tabs={tabs} active={tab} onChange={setTab} />
 
       <div className="space-y-3">
-        {displayed.map((notification) => (
-          <NotificationItem key={notification.id} notification={notification} onMarkRead={markRead} />
-        ))}
+        {displayed.length > 0 ? (
+          displayed.map((notification) => (
+            <NotificationItem key={notification.id} notification={notification} onMarkRead={markRead} />
+          ))
+        ) : (
+          <EmptyState
+            icon="bell"
+            title={tab === 'unread' ? 'All caught up' : tab === 'read' ? 'No read notifications' : 'No notifications yet'}
+            description={
+              tab === 'unread'
+                ? 'You have read all your notifications. New updates will appear here.'
+                : 'Course updates, coaching reminders, and assignment alerts will show up here.'
+            }
+          />
+        )}
       </div>
     </div>
   )

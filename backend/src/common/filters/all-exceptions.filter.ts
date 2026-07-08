@@ -22,7 +22,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
         ? exception.getStatus()
         : HttpStatus.INTERNAL_SERVER_ERROR
 
-    const message =
+    const rawMessage =
       exception instanceof HttpException
         ? exception.getResponse()
         : exception instanceof Error
@@ -42,9 +42,19 @@ export class AllExceptionsFilter implements ExceptionFilter {
       )
     }
 
+    let clientMessage: string
+    if (status >= 500) {
+      clientMessage = 'An unexpected error occurred'
+    } else if (typeof rawMessage === 'string') {
+      clientMessage = rawMessage
+    } else {
+      const nested = (rawMessage as { message?: string | string[] }).message
+      clientMessage = Array.isArray(nested) ? nested.join(', ') : nested ?? 'Request failed'
+    }
+
     response.status(status).json({
       statusCode: status,
-      message: typeof message === 'string' ? message : (message as { message?: string }).message,
+      message: clientMessage,
       requestId: request.requestId,
       timestamp: new Date().toISOString(),
     })

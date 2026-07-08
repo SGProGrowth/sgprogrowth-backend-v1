@@ -64,7 +64,6 @@ export class AnalyticsService {
       },
     })
 
-    const courseIds = enrollments.map((e) => e.courseId)
     const activities = await this.prisma.learningActivity.findMany({
       where: { userId: studentId },
       orderBy: { createdAt: 'desc' },

@@ -118,3 +118,28 @@ export class CreateCertificateTemplateDto {
   @IsOptional()
   design?: Record<string, unknown>
 }
+
+export class UpdateCertificateTemplateDto {
+  @IsOptional()
+  @IsString()
+  name?: string
+
+  @IsOptional()
+  @IsString()
+  description?: string
+
+  @IsOptional()
+  @IsBoolean()
+  active?: boolean
+
+  @IsOptional()
+  @IsBoolean()
+  isDefault?: boolean
+
+  @IsOptional()
+  design?: Record<string, unknown>
+
+  @IsOptional()
+  @IsString({ each: true })
+  courseSlugs?: string[]
+}

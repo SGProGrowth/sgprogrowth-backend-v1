@@ -12,7 +12,11 @@ import { AssignmentRow } from '../../../components/student/AssignmentRow'
 import { Modal } from '../../../components/instructor/Modal'
 import { TextAreaField } from '../../../components/instructor/FormField'
 import { Button } from '../../../components/ui/Button'
-import { PageIntro, TabBar, StatTile } from '../../../components/student/Panel'
+import { PageIntro, TabBar, StatTile, EmptyState } from '../../../components/student/Panel'
+import { LoadingState } from '../../../components/ui/LoadingState'
+import { AlertBanner } from '../../../components/ui/AlertBanner'
+import { RequestError } from '../../../components/ui/RequestError'
+import { getFriendlyErrorMessage } from '../../../lib/api/errors'
 
 export function StudentAssignmentsPage() {
   const [assignments, setAssignments] = useState<Assignment[]>([])
@@ -23,14 +27,18 @@ export function StudentAssignmentsPage() {
   const [submitFiles, setSubmitFiles] = useState<File[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [submitSuccess, setSubmitSuccess] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
+    setLoadError(null)
     try {
       const res = await fetchStudentAssignments({ pageSize: 50 })
       setAssignments(res.data.map(mapApiAssignmentToStudent))
-    } catch {
+    } catch (err) {
       setAssignments([])
+      setLoadError(getFriendlyErrorMessage(err, 'Unable to load assignments.'))
     } finally {
       setLoading(false)
     }
@@ -64,7 +72,7 @@ export function StudentAssignmentsPage() {
       setSubmitBody(detail.submission?.body ?? '')
       setSubmitFiles([])
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load assignment')
+      setError(getFriendlyErrorMessage(e, 'Failed to load assignment details.'))
     }
   }
 
@@ -72,12 +80,14 @@ export function StudentAssignmentsPage() {
     if (!active) return
     setSubmitting(true)
     setError('')
+    setSubmitSuccess('')
     try {
       await submitAssignment(active.id, { body: submitBody, files: submitFiles }, replace)
       setActive(null)
+      setSubmitSuccess(replace ? 'Submission updated successfully.' : 'Assignment submitted successfully.')
       await load()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Submission failed')
+      setError(getFriendlyErrorMessage(e, 'Submission failed. Please try again.'))
     } finally {
       setSubmitting(false)
     }
@@ -107,9 +117,18 @@ export function StudentAssignmentsPage() {
 
       <TabBar tabs={tabs} active={tab} onChange={setTab} />
 
+      {submitSuccess && (
+        <AlertBanner variant="success" className="mb-4" role="status">
+          {submitSuccess}
+        </AlertBanner>
+      )}
+
+      {loadError ? (
+        <RequestError title="Unable to load assignments" message={loadError} onRetry={() => void load()} />
+      ) : (
       <div className="space-y-3">
         {loading ? (
-          <p className="text-sm text-ink-3 py-8 text-center">Loading assignments…</p>
+          <LoadingState label="Loading assignments…" />
         ) : displayed.length > 0 ? (
           displayed.map((assignment) => (
             <AssignmentRow
@@ -120,11 +139,20 @@ export function StudentAssignmentsPage() {
             />
           ))
         ) : (
-          <p className="rounded-xl border border-dashed border-stone-300 bg-stone-50/50 px-6 py-12 text-center text-sm text-ink-3">
-            No assignments in this category.
-          </p>
+          <EmptyState
+            icon="document"
+            title="No assignments here"
+            description={
+              tab === 'overdue'
+                ? 'Great work — you have no overdue assignments.'
+                : tab === 'graded'
+                  ? 'Graded assignments will appear here once your instructor reviews them.'
+                  : 'You are all caught up. New assignments will show up when your instructor publishes them.'
+            }
+          />
         )}
       </div>
+      )}
 
       {submitted.length > 0 && tab === 'upcoming' && (
         <p className="mt-6 text-xs text-ink-3">
@@ -158,10 +186,7 @@ export function StudentAssignmentsPage() {
           <div className="space-y-4">
             <p className="text-sm text-ink-3">{active.courseTitle} · Due {active.dueDate}</p>
             {active.instructions && (
-              <div
-                className="prose prose-sm max-w-none text-ink-2"
-                dangerouslySetInnerHTML={{ __html: active.instructions }}
-              />
+              <p className="whitespace-pre-wrap text-sm text-ink-2">{active.instructions}</p>
             )}
             {active.attachments.length > 0 && (
               <div>
@@ -221,7 +246,7 @@ export function StudentAssignmentsPage() {
                 </div>
               </>
             )}
-            {error && <p className="text-sm text-red-600">{error}</p>}
+            {error && <AlertBanner variant="error">{error}</AlertBanner>}
           </div>
         )}
       </Modal>

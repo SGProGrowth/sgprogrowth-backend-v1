@@ -14,7 +14,6 @@ import {
   MinLength,
 } from 'class-validator'
 import { AssignmentStatus, AssignmentVisibility, SubmissionStatus } from '@prisma/client'
-import { Type } from 'class-transformer'
 import { PaginationQueryDto } from './pagination.dto'
 
 export class InstructorAssignmentsQueryDto extends PaginationQueryDto {

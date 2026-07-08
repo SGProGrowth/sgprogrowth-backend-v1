@@ -28,6 +28,15 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
     return <Navigate to={getDashboardBasePath(user.role)} replace />
   }
 
+  if (!user.emailVerified) {
+    return (
+      <Navigate
+        to={`/resend-verification?email=${encodeURIComponent(user.email)}`}
+        replace
+      />
+    )
+  }
+
   return <>{children}</>
 }
 

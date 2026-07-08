@@ -1,14 +1,10 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import {
-  BatchEnrollmentStatus,
   BatchImportJobStatus,
   BatchImportRowStatus,
-  EnrollmentStatus,
-  UserRole,
 } from '@prisma/client'
 import type { Express } from 'express'
-import { randomBytes } from 'crypto'
 import { BatchImportExecuteDto, BatchImportPreviewDto } from '../../common/dto/batch.dto'
 import { PrismaService } from '../../prisma/prisma.module'
 import { NotificationMailService } from '../mail/notification-mail.service'

@@ -3,6 +3,7 @@ import { MailModule } from '../mail/mail.module'
 import { StorageModule } from '../storage/storage.module'
 import { CertificatePdfService } from './certificate-pdf.service'
 import { CertificateRulesService } from './certificate-rules.service'
+import { CertificateTemplatesService } from './certificate-templates.service'
 import { CertificateVerifyController, CertificatesController } from './certificates.controller'
 import { CertificatesService } from './certificates.service'
 
@@ -13,7 +14,13 @@ import { CertificatesService } from './certificates.service'
     CertificatesService,
     CertificatePdfService,
     CertificateRulesService,
+    CertificateTemplatesService,
   ],
-  exports: [CertificatesService, CertificateRulesService, CertificatePdfService],
+  exports: [
+    CertificatesService,
+    CertificateRulesService,
+    CertificatePdfService,
+    CertificateTemplatesService,
+  ],
 })
 export class CertificatesModule {}

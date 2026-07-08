@@ -9,6 +9,10 @@ import {
   type QuizResultDetail,
 } from '../../../lib/api/quizzes'
 import { Button } from '../../../components/ui/Button'
+import { LoadingState } from '../../../components/ui/LoadingState'
+import { RequestError } from '../../../components/ui/RequestError'
+import { getFriendlyErrorMessage } from '../../../lib/api/errors'
+import { AlertBanner } from '../../../components/ui/AlertBanner'
 import { PageIntro } from '../../../components/student/Panel'
 
 function formatTime(seconds: number) {
@@ -45,7 +49,7 @@ export function StudentQuizPlayerPage() {
         setRemaining(Math.max(0, Math.floor((new Date(data.expiresAt).getTime() - Date.now()) / 1000)))
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load quiz')
+      setError(getFriendlyErrorMessage(e, 'Failed to load quiz.'))
     }
   }, [attemptId])
 
@@ -181,11 +185,18 @@ export function StudentQuizPlayerPage() {
   }, [current, responses])
 
   if (error && !player) {
-    return <p className="text-red-600 p-8">{error}</p>
+    return (
+      <div className="animate-rise max-w-lg mx-auto py-8">
+        <AlertBanner variant="error">{error}</AlertBanner>
+        <div className="mt-4">
+          <Button to="/dashboard/quizzes" variant="secondary">Back to quizzes</Button>
+        </div>
+      </div>
+    )
   }
 
   if (!player || !current) {
-    return <p className="text-ink-3 p-8 text-center">Loading quiz…</p>
+    return <LoadingState label="Loading quiz…" className="max-w-lg mx-auto" />
   }
 
   return (
@@ -258,14 +269,43 @@ export function StudentQuizResultPage() {
   const locState = location.state as { result?: QuizResultDetail; autoSubmitted?: boolean } | null
   const [result, setResult] = useState<QuizResultDetail | null>(locState?.result ?? null)
   const [loading, setLoading] = useState(!locState?.result)
+  const [error, setError] = useState<string | null>(null)
+
+  const loadResult = () => {
+    if (!attemptId) return
+    setLoading(true)
+    setError(null)
+    void fetchQuizResult(attemptId)
+      .then(setResult)
+      .catch((err) => {
+        setResult(null)
+        setError(getFriendlyErrorMessage(err, 'Unable to load quiz results.'))
+      })
+      .finally(() => setLoading(false))
+  }
 
   useEffect(() => {
     if (result || !attemptId) return
-    void fetchQuizResult(attemptId).then(setResult).finally(() => setLoading(false))
+    loadResult()
   }, [attemptId, result])
 
-  if (loading) return <p className="p-8 text-center text-ink-3">Loading results…</p>
-  if (!result) return <p className="p-8 text-center text-ink-3">No results found.</p>
+  if (loading) return <LoadingState label="Loading results…" className="max-w-lg mx-auto" />
+  if (error) {
+    return (
+      <div className="animate-rise max-w-lg mx-auto py-8">
+        <RequestError title="Unable to load results" message={error} onRetry={loadResult} />
+        <p className="mt-4 text-center"><Link to="/dashboard/quizzes" className="action-link inline-flex">Back to quizzes</Link></p>
+      </div>
+    )
+  }
+  if (!result) {
+    return (
+      <div className="animate-rise max-w-lg mx-auto py-8 text-center">
+        <p className="text-ink-3">No results found for this attempt.</p>
+        <p className="mt-4"><Link to="/dashboard/quizzes" className="action-link inline-flex">Back to quizzes</Link></p>
+      </div>
+    )
+  }
 
   return (
     <div className="animate-rise max-w-2xl mx-auto">

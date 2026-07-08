@@ -22,7 +22,7 @@ export function SearchBar({
   const [query, setQuery] = useState(defaultQuery)
   const [focused, setFocused] = useState(false)
 
-  const h = size === 'lg' ? 'h-[52px] text-[15px]' : 'h-10 text-sm'
+  const h = size === 'lg' ? 'h-[52px] text-[15px]' : 'h-11 min-h-11 text-sm'
 
   const goToSearch = (term: string) => {
     const trimmed = term.trim()
@@ -67,7 +67,7 @@ export function SearchBar({
               key={term}
               type="button"
               onMouseDown={() => goToSearch(term)}
-              className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-ink-2 hover:bg-stone-50 hover:text-ink transition-colors"
+              className="flex w-full items-center gap-2 px-4 py-2.5 min-h-11 text-left text-sm text-ink-2 hover:bg-stone-50 hover:text-ink transition-colors"
             >
               {term}
             </button>

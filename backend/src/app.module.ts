@@ -58,6 +58,8 @@ import { StorageModule } from './modules/storage/storage.module'
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
         const redisUrl = config.get<string>('REDIS_URL')
+        const useRedisThrottle =
+          config.get<string>('THROTTLE_USE_REDIS') === 'true' && Boolean(redisUrl)
         return {
           throttlers: [
             {
@@ -71,7 +73,7 @@ import { StorageModule } from './modules/storage/storage.module'
               limit: Number(config.get<string>('THROTTLE_AUTH_LIMIT') ?? 20),
             },
           ],
-          storage: redisUrl ? new ThrottlerStorageRedisService(redisUrl) : undefined,
+          storage: useRedisThrottle ? new ThrottlerStorageRedisService(redisUrl!) : undefined,
         }
       },
     }),

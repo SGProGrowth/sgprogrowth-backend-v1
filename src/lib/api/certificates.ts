@@ -1,19 +1,9 @@
-import { getApiBaseUrl } from './client'
-import { getAccessToken } from './tokenStorage'
-
-async function authFetch(path: string, init: RequestInit = {}) {
-  const token = getAccessToken()
-  const headers = new Headers(init.headers)
-  headers.set('Accept', 'application/json')
-  if (token) headers.set('Authorization', `Bearer ${token}`)
-  const res = await fetch(`${getApiBaseUrl()}${path}`, { ...init, headers })
-  const payload = await res.json().catch(() => ({}))
-  if (!res.ok) {
-    const message = (payload as { message?: string | string[] }).message ?? `Request failed (${res.status})`
-    throw new Error(Array.isArray(message) ? message.join(', ') : String(message))
-  }
-  return payload
-}
+import {
+  authorizedDownload,
+  authorizedFetch,
+  getApiBaseUrl,
+  getAuthBearerToken,
+} from './client'
 
 export interface CertificateRecord {
   id: string
@@ -49,8 +39,56 @@ export interface CertificateVerification {
   expiresAt?: string | null
 }
 
+export interface CertificateTemplate {
+  id: string
+  name: string
+  slug: string
+  description?: string | null
+  isDefault: boolean
+  active: boolean
+  hasUploadedFile: boolean
+  design: {
+    primaryColor?: string
+    accentColor?: string
+    pageWidth?: number
+    pageHeight?: number
+  }
+  currentVersion?: {
+    id: string
+    versionNumber: number
+    mimeType?: string | null
+    fileSizeBytes?: number | null
+    originalName?: string | null
+    createdAt: string
+  } | null
+  assignedCourses: { id: string; slug: string; title: string }[]
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CertificateTemplateVersion {
+  id: string
+  versionNumber: number
+  mimeType?: string | null
+  fileSizeBytes?: number | null
+  originalName?: string | null
+  createdAt: string
+  isCurrent: boolean
+}
+
+export interface CertificateCompletionRule {
+  courseId: string
+  requireProgressPct: number
+  requireAllLessons: boolean
+  requireAssignmentsSubmitted: boolean
+  minAssignmentScorePct?: number | null
+  requireQuizPass: boolean
+  minQuizPassPct: number
+  requireLiveSessions: boolean
+}
+
 export function fetchMyCertificates() {
-  return authFetch('/certificates/me') as Promise<CertificateRecord[]>
+  return authorizedFetch('/certificates/me') as Promise<CertificateRecord[]>
 }
 
 export function fetchInstructorCertificates(params?: {
@@ -63,30 +101,22 @@ export function fetchInstructorCertificates(params?: {
   if (params?.search) qs.set('search', params.search)
   if (params?.status) qs.set('status', params.status)
   const q = qs.toString()
-  return authFetch(`/certificates/mine${q ? `?${q}` : ''}`) as Promise<CertificateRecord[]>
+  return authorizedFetch(`/certificates/mine${q ? `?${q}` : ''}`) as Promise<CertificateRecord[]>
 }
 
 export function fetchCertificate(id: string) {
-  return authFetch(`/certificates/${id}`) as Promise<CertificateRecord>
+  return authorizedFetch(`/certificates/${id}`) as Promise<CertificateRecord>
 }
 
 export function fetchCertificateHistory(id: string) {
-  return authFetch(`/certificates/${id}/history`) as Promise<CertificateRecord[]>
+  return authorizedFetch(`/certificates/${id}/history`) as Promise<CertificateRecord[]>
 }
 
 export async function downloadCertificatePdf(id: string, filename: string) {
-  const token = getAccessToken()
-  const res = await fetch(`${getApiBaseUrl()}/certificates/${id}/pdf`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  })
-  if (!res.ok) throw new Error('Failed to download certificate PDF')
-  const blob = await res.blob()
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename.endsWith('.pdf') ? filename : `${filename}.pdf`
-  a.click()
-  URL.revokeObjectURL(url)
+  return authorizedDownload(
+    `/certificates/${id}/pdf`,
+    filename.endsWith('.pdf') ? filename : `${filename}.pdf`,
+  )
 }
 
 export function verifyCertificatePublic(credentialId: string) {
@@ -101,13 +131,112 @@ export function verifyCertificatePublic(credentialId: string) {
   })
 }
 
+export function fetchCertificateTemplates() {
+  return authorizedFetch('/certificates/templates') as Promise<CertificateTemplate[]>
+}
+
+export function createCertificateTemplate(data: {
+  name: string
+  description?: string
+  isDefault?: boolean
+}) {
+  return authorizedFetch('/certificates/templates', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  }) as Promise<CertificateTemplate>
+}
+
+export function updateCertificateTemplate(
+  templateId: string,
+  data: {
+    name?: string
+    description?: string
+    active?: boolean
+    isDefault?: boolean
+    courseSlugs?: string[]
+    design?: Record<string, unknown>
+  },
+) {
+  return authorizedFetch(`/certificates/templates/${templateId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  }) as Promise<CertificateTemplate>
+}
+
+export function fetchCertificateTemplateVersions(templateId: string) {
+  return authorizedFetch(`/certificates/templates/${templateId}/versions`) as Promise<
+    CertificateTemplateVersion[]
+  >
+}
+
+export async function uploadCertificateTemplate(
+  templateId: string,
+  file: File,
+  onProgress?: (pct: number) => void,
+) {
+  const token = await getAuthBearerToken()
+  const form = new FormData()
+  form.append('file', file)
+
+  return new Promise<CertificateTemplate>((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', `${getApiBaseUrl()}/certificates/templates/${templateId}/upload`)
+    xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && onProgress) {
+        onProgress(Math.round((event.loaded / event.total) * 100))
+      }
+    }
+    xhr.onload = () => {
+      try {
+        const body = JSON.parse(xhr.responseText || '{}')
+        if (xhr.status >= 200 && xhr.status < 300) resolve(body as CertificateTemplate)
+        else reject(new Error(body.message ?? `Upload failed (${xhr.status})`))
+      } catch {
+        reject(new Error('Upload failed'))
+      }
+    }
+    xhr.onerror = () => reject(new Error('Network error during upload'))
+    xhr.send(form)
+  })
+}
+
+export async function fetchCertificateTemplatePreviewUrl(templateId: string) {
+  const token = await getAuthBearerToken()
+  const res = await fetch(`${getApiBaseUrl()}/certificates/templates/${templateId}/preview`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error('Preview unavailable')
+  const blob = await res.blob()
+  return URL.createObjectURL(blob)
+}
+
+export function fetchCourseCertificateRules(courseSlug: string) {
+  return authorizedFetch(`/certificates/courses/${courseSlug}/rules`) as Promise<CertificateCompletionRule>
+}
+
+export function updateCourseCertificateRules(
+  courseSlug: string,
+  data: Partial<CertificateCompletionRule>,
+) {
+  return authorizedFetch(`/certificates/courses/${courseSlug}/rules`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  }) as Promise<CertificateCompletionRule>
+}
+
 export function issueCertificate(data: {
   enrollmentId?: string
   courseSlug?: string
   studentId?: string
+  templateId?: string
   bypassRules?: boolean
+  expiresAt?: string
 }) {
-  return authFetch('/certificates/issue', {
+  return authorizedFetch('/certificates/issue', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
@@ -115,18 +244,21 @@ export function issueCertificate(data: {
 }
 
 export function revokeCertificate(id: string, reason: string) {
-  return authFetch(`/certificates/${id}/revoke`, {
+  return authorizedFetch(`/certificates/${id}/revoke`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ reason }),
   }) as Promise<CertificateRecord>
 }
 
-export function reissueCertificate(id: string) {
-  return authFetch(`/certificates/${id}/reissue`, {
+export function reissueCertificate(
+  id: string,
+  data?: { templateId?: string; expiresAt?: string },
+) {
+  return authorizedFetch(`/certificates/${id}/reissue`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({}),
+    body: JSON.stringify(data ?? {}),
   }) as Promise<CertificateRecord>
 }
 

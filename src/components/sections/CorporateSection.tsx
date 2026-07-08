@@ -22,9 +22,9 @@ export function CorporateSection() {
               ))}
             </ul>
             <div className="mt-10 flex flex-wrap gap-3">
-              <Button href="#contact" variant="gold" size="lg">Request demo</Button>
+              <Button href="mailto:contact@sgprogrowth.com" variant="gold" size="lg">Contact sales</Button>
               <Button href="#contact" variant="secondary" size="lg" className="border-stone-600 bg-transparent text-white hover:bg-stone-800 hover:border-stone-500">
-                Contact sales
+                Learn more
               </Button>
             </div>
           </div>

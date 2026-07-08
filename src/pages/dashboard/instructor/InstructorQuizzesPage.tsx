@@ -17,6 +17,7 @@ import { StatusBadge } from '../../../components/instructor/StatusBadge'
 import { Modal, ConfirmDialog, SuccessBanner } from '../../../components/instructor/Modal'
 import { FormField, SelectField, TextAreaField, ToggleField } from '../../../components/instructor/FormField'
 import { Button } from '../../../components/ui/Button'
+import { LoadingState } from '../../../components/ui/LoadingState'
 
 export function InstructorQuizzesPage() {
   const { workspace } = useInstructorDashboard()
@@ -233,7 +234,7 @@ export function InstructorQuizzesPage() {
       <TabBar tabs={tabs} active={tab} onChange={setTab} />
 
       {loading && !displayed.length ? (
-        <p className="text-sm text-ink-3 py-8 text-center">Loading quizzes…</p>
+        <LoadingState label="Loading quizzes…" />
       ) : displayed.length === 0 ? (
         <EmptyState title="No quizzes found" description="Create a generic or course-linked quiz to get started." />
       ) : (
@@ -243,7 +244,7 @@ export function InstructorQuizzesPage() {
               <div className="flex items-start justify-between gap-2">
                 <div>
                   {q.isGeneric && (
-                    <span className="rounded-full bg-purple-50 px-2 py-0.5 text-[10px] font-semibold uppercase text-purple-800 border border-purple-200">
+                    <span className="rounded-full border border-gold-200 bg-gold-50 px-2 py-0.5 text-[10px] font-semibold uppercase text-gold-800">
                       Generic
                     </span>
                   )}

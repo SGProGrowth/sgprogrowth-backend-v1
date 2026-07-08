@@ -11,7 +11,15 @@ export function TrustBar() {
             {trustPartners.map((p) => (
               <li key={p.name}>
                 {p.logo ? (
-                  <img src={p.logo} alt={p.name} className="h-6 w-auto opacity-40 grayscale hover:opacity-70 hover:grayscale-0 transition-all" />
+                  <img
+                    src={p.logo}
+                    alt={p.name}
+                    width={120}
+                    height={24}
+                    loading="lazy"
+                    decoding="async"
+                    className="h-6 w-auto opacity-40 grayscale hover:opacity-70 hover:grayscale-0 transition-all"
+                  />
                 ) : (
                   <span className="text-sm text-ink-4">{p.name}</span>
                 )}

@@ -27,7 +27,6 @@ export class CertificateProcessor extends WorkerHost {
       where: { id: job.data.certificateId },
       include: {
         course: { include: { organization: true, instructor: true } },
-        template: true,
       },
     })
     if (!cert) {
@@ -36,7 +35,16 @@ export class CertificateProcessor extends WorkerHost {
     }
     if (cert.pdfStorageKey) return
 
-    const verificationUrl = cert.verificationUrl
+    const snapshot = (cert.designSnapshot ?? {}) as {
+      storageKey?: string
+      design?: Record<string, unknown>
+    }
+    if (!snapshot.storageKey) {
+      this.logger.warn(`Certificate ${cert.credentialId} has no design snapshot background`)
+      return
+    }
+
+    const backgroundBuffer = await this.storage.readBuffer(snapshot.storageKey)
     const pdfBuffer = await this.pdfService.generate({
       organizationName: cert.course.organization.name,
       logoUrl: cert.course.organization.logoUrl,
@@ -47,8 +55,9 @@ export class CertificateProcessor extends WorkerHost {
       credentialId: cert.credentialId,
       completionDate: cert.completionDate,
       issuedAt: cert.issuedAt,
-      verificationUrl,
-      design: (cert.template?.design ?? {}) as { primaryColor?: string; accentColor?: string },
+      verificationUrl: cert.verificationUrl,
+      backgroundBuffer,
+      design: snapshot.design,
     })
 
     const pdfKey = this.storage.buildKey('certificates', `${cert.credentialId}.pdf`)

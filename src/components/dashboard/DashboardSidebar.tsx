@@ -10,6 +10,7 @@ import {
 import type { InstructorWorkspace } from '../../lib/instructorWorkspace'
 import type { StudentWorkspace } from '../../lib/studentWorkspace'
 import { NavIconSvg } from './NavIcon'
+import { BrandLogo } from '../brand/BrandLogo'
 
 interface DashboardSidebarProps {
   role: UserRole
@@ -41,7 +42,7 @@ function SidebarNav({ sections, onNavigate }: { sections: NavSection[]; onNaviga
               const active = isActive(item.href)
               const isExternal = item.href.startsWith('/courses')
 
-              const linkClass = `group flex min-h-11 items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors ${
+              const linkClass = `group flex min-h-11 items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest-600 focus-visible:ring-offset-2 ${
                 active
                   ? 'bg-forest-800 text-white'
                   : 'text-ink-2 hover:bg-stone-100 hover:text-ink'
@@ -120,20 +121,15 @@ export function DashboardSidebar({ role, open, onClose }: DashboardSidebarProps)
         }`}
       >
         <div className="flex h-16 items-center justify-between gap-2 border-b border-stone-200 px-4 sm:px-5">
-          <Link to={basePath} className="flex min-w-0 items-center gap-2.5" onClick={onClose}>
-            <div className="flex h-9 w-9 items-center justify-center rounded-md bg-forest-800">
-              <span className="text-sm font-bold text-white tracking-tight">SG</span>
-            </div>
-            <div className="leading-none">
-              <span className="block font-display text-[14px] font-bold text-ink">SG Pro Growth</span>
-              <span className="block text-[10px] font-medium text-ink-3 mt-0.5 capitalize">
-                {role} portal
-              </span>
-            </div>
-          </Link>
+          <BrandLogo
+            variant="sidebar"
+            to={basePath}
+            subtitle={`${role} portal`}
+            onClick={onClose}
+          />
           <button
             type="button"
-            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md text-ink-3 hover:bg-stone-100 lg:hidden"
+            className="icon-btn text-ink-3 lg:hidden"
             aria-label="Close menu"
             onClick={onClose}
           >
@@ -158,7 +154,7 @@ export function DashboardSidebar({ role, open, onClose }: DashboardSidebarProps)
           <div className="mt-2 flex gap-2">
             <Link
               to="/"
-              className="flex-1 rounded-md border border-stone-200 px-3 py-2 text-center text-xs font-semibold text-ink-2 hover:bg-stone-50"
+              className="flex min-h-11 flex-1 items-center justify-center rounded-md border border-stone-200 px-3 text-xs font-semibold text-ink-2 transition-colors hover:bg-stone-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest-600 focus-visible:ring-offset-2"
               onClick={onClose}
             >
               Home
@@ -171,7 +167,7 @@ export function DashboardSidebar({ role, open, onClose }: DashboardSidebarProps)
                   navigate('/login', { replace: true })
                 })
               }}
-              className="flex-1 rounded-md border border-stone-200 px-3 py-2 text-xs font-semibold text-ink-2 hover:bg-stone-50"
+              className="flex min-h-11 flex-1 items-center justify-center rounded-md border border-stone-200 px-3 text-xs font-semibold text-ink-2 transition-colors hover:bg-stone-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest-600 focus-visible:ring-offset-2"
             >
               Sign out
             </button>
@@ -214,7 +210,7 @@ export function DashboardHeader({
       <div className="flex h-14 min-h-14 items-center gap-2 px-3 sm:h-16 sm:gap-4 sm:px-4 md:px-6 lg:px-8">
         <button
           type="button"
-          className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md text-ink-2 hover:bg-stone-100 lg:hidden"
+          className="icon-btn lg:hidden"
           aria-label="Open menu"
           onClick={onMenuClick}
         >
@@ -229,28 +225,31 @@ export function DashboardHeader({
         </div>
 
         <div className="hidden md:block flex-1 max-w-sm">
-          <div className="relative">
+          <div className="relative" title="Dashboard search — coming soon">
             <svg
               className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-4"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
               strokeWidth={2}
+              aria-hidden="true"
             >
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             <input
               type="search"
-              placeholder="Search..."
-              className="input-field w-full pl-9 h-10 text-sm"
+              placeholder="Search (coming soon)"
+              aria-label="Search dashboard — coming soon"
+              disabled
+              className="input-field w-full pl-9 h-10 text-sm opacity-60 cursor-not-allowed"
             />
           </div>
         </div>
 
         <Link
           to={notificationsPath}
-          className="relative inline-flex min-h-11 min-w-11 items-center justify-center rounded-md text-ink-2 hover:bg-stone-100"
-          aria-label="Notifications"
+          className="icon-btn relative"
+          aria-label={unreadNotifications > 0 ? `Notifications (${unreadNotifications} unread)` : 'Notifications'}
         >
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
@@ -268,7 +267,9 @@ export function DashboardHeader({
         <div className="relative">
           <button
             type="button"
-            className="flex min-h-11 items-center gap-2 rounded-md p-1.5 hover:bg-stone-100"
+            className="flex min-h-11 items-center gap-2 rounded-md p-1.5 transition-colors hover:bg-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest-600 focus-visible:ring-offset-2"
+            aria-expanded={showUserMenu}
+            aria-haspopup="menu"
             onClick={(e) => {
               e.stopPropagation()
               setShowUserMenu((v) => !v)
@@ -279,20 +280,21 @@ export function DashboardHeader({
             </div>
           </button>
           {showUserMenu && (
-            <div className="absolute right-0 top-full mt-1 w-48 rounded-md border border-stone-200 bg-white py-1 shadow-lg">
+            <div className="absolute right-0 top-full mt-1 w-48 rounded-md border border-stone-200 bg-white py-1 shadow-lg" role="menu">
               <div className="border-b border-stone-100 px-4 py-2">
                 <p className="text-sm font-semibold text-ink">{user?.name}</p>
                 <p className="text-xs text-ink-3 capitalize">{user?.role}</p>
               </div>
-              <Link to={settingsPath} className="block px-4 py-2 text-sm text-ink-2 hover:bg-stone-50">
+              <Link to={settingsPath} className="flex min-h-11 items-center px-4 text-sm text-ink-2 transition-colors hover:bg-stone-50 focus-visible:bg-stone-50 focus-visible:outline-none" role="menuitem">
                 Profile & settings
               </Link>
-              <Link to="/" className="block px-4 py-2 text-sm text-ink-2 hover:bg-stone-50">
+              <Link to="/" className="flex min-h-11 items-center px-4 text-sm text-ink-2 transition-colors hover:bg-stone-50 focus-visible:bg-stone-50 focus-visible:outline-none" role="menuitem">
                 Back to homepage
               </Link>
               <button
                 type="button"
-                className="block w-full px-4 py-2 text-left text-sm text-red-700 hover:bg-red-50"
+                className="flex min-h-11 w-full items-center px-4 text-left text-sm text-red-700 transition-colors hover:bg-red-50 focus-visible:bg-red-50 focus-visible:outline-none"
+                role="menuitem"
                 onClick={() => {
                   void signOut().then(() => {
                     setShowUserMenu(false)

@@ -30,15 +30,6 @@ export const StudentCalendarPage = lazy(() =>
 export const StudentBatchesPage = lazy(() =>
   import('../pages/dashboard/student/StudentBatchesPage').then((m) => ({ default: m.StudentBatchesPage })),
 )
-export const StudentCoachingPage = lazy(() =>
-  import('../pages/dashboard/student/StudentCoachingPage').then((m) => ({ default: m.StudentCoachingPage })),
-)
-export const StudentMessagesPage = lazy(() =>
-  import('../pages/dashboard/student/StudentMessagesPage').then((m) => ({ default: m.StudentMessagesPage })),
-)
-export const StudentDownloadsPage = lazy(() =>
-  import('../pages/dashboard/student/StudentDownloadsPage').then((m) => ({ default: m.StudentDownloadsPage })),
-)
 
 export const InstructorOverviewPage = lazy(() =>
   import('../pages/dashboard/instructor/InstructorOverviewPage').then((m) => ({ default: m.InstructorOverviewPage })),
@@ -57,18 +48,6 @@ export const InstructorStudentsPage = lazy(() =>
 )
 export const InstructorStudentProgressPage = lazy(() =>
   import('../pages/dashboard/instructor/InstructorStudentsPage').then((m) => ({ default: m.InstructorStudentProgressPage })),
-)
-export const InstructorGradesPage = lazy(() =>
-  import('../pages/dashboard/instructor/InstructorGradesPage').then((m) => ({ default: m.InstructorGradesPage })),
-)
-export const InstructorCoachingPage = lazy(() =>
-  import('../pages/dashboard/instructor/InstructorCommunicationsPage').then((m) => ({ default: m.InstructorCoachingPage })),
-)
-export const InstructorAnnouncementsPage = lazy(() =>
-  import('../pages/dashboard/instructor/InstructorCommunicationsPage').then((m) => ({ default: m.InstructorAnnouncementsPage })),
-)
-export const InstructorMessagesPage = lazy(() =>
-  import('../pages/dashboard/instructor/InstructorCommunicationsPage').then((m) => ({ default: m.InstructorMessagesPage })),
 )
 export const InstructorNotificationsPage = lazy(() =>
   import('../pages/dashboard/instructor/InstructorInsightsPage').then((m) => ({ default: m.InstructorNotificationsPage })),
@@ -111,7 +90,4 @@ export const InstructorBatchesPage = lazy(() =>
 )
 export const InstructorBulkImportPage = lazy(() =>
   import('../pages/dashboard/instructor/InstructorBulkImportPage').then((m) => ({ default: m.InstructorBulkImportPage })),
-)
-export const InstructorEarningsPage = lazy(() =>
-  import('../pages/dashboard/instructor/InstructorEarningsPage').then((m) => ({ default: m.InstructorEarningsPage })),
 )

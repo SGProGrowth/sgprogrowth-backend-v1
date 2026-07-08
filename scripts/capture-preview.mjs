@@ -24,8 +24,8 @@ const context = await browser.newContext({ viewport: { width: 1440, height: 900 
 const page = await context.newPage()
 
 await page.goto(`${BASE}/login/student`)
-await page.fill('#email', 'neha@example.com')
-await page.fill('#password', 'demo1234')
+await page.fill('#email', 'neha.sharma@example.com')
+await page.fill('#password', 'Password123!')
 await page.click('button[type="submit"]')
 await page.waitForURL('**/dashboard**', { timeout: 10000 })
 

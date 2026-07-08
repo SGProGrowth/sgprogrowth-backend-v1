@@ -81,3 +81,7 @@ HTTP Request
 5. Monitor `/health/detailed` and queue failed job counts
 
 See [DEPLOYMENT.md](./DEPLOYMENT.md) for ops procedures.
+
+## Local verification
+
+See the [root README](../README.md#verification) for backend E2E, frontend smoke, cross-browser, and responsive audit scripts.

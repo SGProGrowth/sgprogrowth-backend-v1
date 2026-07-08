@@ -1,4 +1,3 @@
-import { Link } from 'react-router-dom'
 import { Button } from '../components/ui/Button'
 
 export function NotFoundPage() {
@@ -10,12 +9,10 @@ export function NotFoundPage() {
         <p className="mt-4 text-body-lg">
           The page you&apos;re looking for doesn&apos;t exist or may have been moved.
         </p>
-        <div className="mt-8 flex flex-wrap justify-center gap-3">
+        <div className="mt-8 flex flex-col flex-wrap justify-center gap-3 sm:flex-row">
           <Button to="/" variant="primary" size="md">Back to homepage</Button>
           <Button to="/courses" variant="secondary" size="md">Browse courses</Button>
-          <Link to="/login" className="inline-flex items-center px-4 py-2.5 text-sm font-semibold text-forest-800 hover:text-forest-900">
-            Sign in
-          </Link>
+          <Button to="/login" variant="ghost" size="md">Sign in</Button>
         </div>
       </div>
     </section>

@@ -300,7 +300,7 @@ export class QuizzesService {
     return { message: 'Quiz deleted' }
   }
 
-  async publishQuiz(quizId: string, instructorId: string, email: string) {
+  async publishQuiz(quizId: string, instructorId: string) {
     const quiz = await this.getOwnedQuiz(quizId, instructorId)
     if (!quiz.questions.length) {
       throw new BadRequestException('Add at least one question before publishing')
@@ -358,7 +358,7 @@ export class QuizzesService {
   }
 
   async setQuestions(quizId: string, instructorId: string, dto: SetQuizQuestionsDto) {
-    const quiz = await this.getOwnedQuiz(quizId, instructorId)
+    await this.getOwnedQuiz(quizId, instructorId)
     const orgId = await this.defaultOrgId()
 
     const questionIds = dto.questions.map((q) => q.questionId)
@@ -387,7 +387,7 @@ export class QuizzesService {
   }
 
   async generateQuestions(quizId: string, instructorId: string, dto: GenerateQuizQuestionsDto) {
-    const quiz = await this.getOwnedQuiz(quizId, instructorId)
+    await this.getOwnedQuiz(quizId, instructorId)
     const orgId = await this.defaultOrgId()
 
     const rules = {
@@ -531,7 +531,7 @@ export class QuizzesService {
     }
 
     if (attempt.expiresAt && attempt.expiresAt < new Date()) {
-      await this.submitAttemptInternal(attempt.id, studentId, true)
+      await this.submitAttemptInternal(attempt.id, studentId)
       throw new BadRequestException('Time expired — attempt auto-submitted')
     }
 
@@ -623,7 +623,7 @@ export class QuizzesService {
     return { saved: true, lastSavedAt: new Date().toISOString() }
   }
 
-  private async submitAttemptInternal(attemptId: string, studentId: string, autoTimeout = false) {
+  private async submitAttemptInternal(attemptId: string, studentId: string) {
     const attempt = await this.prisma.quizAttempt.findUnique({
       where: { id: attemptId },
       include: {
@@ -780,7 +780,7 @@ export class QuizzesService {
   }
 
   async submitAttempt(attemptId: string, studentId: string) {
-    return this.submitAttemptInternal(attemptId, studentId, false)
+    return this.submitAttemptInternal(attemptId, studentId)
   }
 
   async getAttemptResult(attemptId: string, userId: string, role: 'student' | 'instructor') {

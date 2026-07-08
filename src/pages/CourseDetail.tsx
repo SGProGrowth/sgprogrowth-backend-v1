@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Breadcrumbs } from '../components/ui/Breadcrumbs'
 import { Container } from '../components/layout/Container'
@@ -11,7 +11,8 @@ import {
   type CatalogCourseDetailDto,
 } from '../lib/api/courses'
 import type { Course } from '../data/homepageData'
-import { getErrorMessage } from '../lib/api/errors'
+import { ApiError, getErrorMessage, getFriendlyErrorMessage } from '../lib/api/errors'
+import { RequestError } from '../components/ui/RequestError'
 
 const defaultOutcomes = [
   'Apply skills through guided projects and real-world scenarios',
@@ -25,17 +26,19 @@ export default function CourseDetail() {
   const [course, setCourse] = useState<(Course & { description?: string; learningOutcomes?: string[]; forTeams?: boolean }) | null>(null)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
-  useEffect(() => {
+  const loadCourse = useCallback(() => {
     if (!id) {
       setNotFound(true)
       setLoading(false)
-      return
+      return () => {}
     }
 
     let cancelled = false
     setLoading(true)
     setNotFound(false)
+    setLoadError(null)
 
     fetchCourseBySlug(id)
       .then((res) => {
@@ -49,9 +52,13 @@ export default function CourseDetail() {
         })
       })
       .catch((err) => {
-        if (!cancelled) {
-          if (getErrorMessage(err).toLowerCase().includes('not found')) setNotFound(true)
-          else setNotFound(true)
+        if (cancelled) return
+        if (err instanceof ApiError && err.status === 404) {
+          setNotFound(true)
+        } else if (getErrorMessage(err).toLowerCase().includes('not found')) {
+          setNotFound(true)
+        } else {
+          setLoadError(getFriendlyErrorMessage(err, 'Unable to load this course.'))
         }
       })
       .finally(() => {
@@ -63,11 +70,30 @@ export default function CourseDetail() {
     }
   }, [id])
 
+  useEffect(() => {
+    const cleanup = loadCourse()
+    return cleanup
+  }, [loadCourse])
+
   if (loading) {
     return (
       <section className="section-padding">
         <Container>
           <LoadingState label="Loading course…" />
+        </Container>
+      </section>
+    )
+  }
+
+  if (loadError) {
+    return (
+      <section className="section-padding">
+        <Container>
+          <Breadcrumbs items={[{ label: 'Home', href: '/' }, { label: 'Courses', href: '/courses' }, { label: 'Error' }]} />
+          <RequestError title="Unable to load course" message={loadError} onRetry={() => { loadCourse() }} className="mt-8" />
+          <div className="mt-6 text-center">
+            <Button to="/courses" variant="secondary" size="md">Browse all courses</Button>
+          </div>
         </Container>
       </section>
     )

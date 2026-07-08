@@ -1,8 +1,8 @@
 @import 'tailwindcss';
 
 @theme {
-  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
-  --font-display: 'DM Sans', 'Inter', system-ui, sans-serif;
+  --font-sans: 'Muli', system-ui, -apple-system, sans-serif;
+  --font-display: 'Montserrat', 'Muli', system-ui, sans-serif;
 
   /* Ink — primary text & dark surfaces */
   --color-ink: #0a0a0a;
@@ -22,15 +22,15 @@
   --color-stone-800: #292524;
   --color-stone-900: #1c1917;
 
-  /* Forest — brand (growth, trust, NOT blue) */
-  --color-forest-50: #ecfdf5;
-  --color-forest-100: #d1fae5;
-  --color-forest-200: #a7f3d0;
-  --color-forest-500: #059669;
-  --color-forest-600: #047857;
-  --color-forest-700: #065f46;
-  --color-forest-800: #0f4c3a;
-  --color-forest-900: #0a3d2e;
+  /* Forest — brand navy palette (sgprogrowth.com #062D6F / #0D4DB8) */
+  --color-forest-50: #e8eef7;
+  --color-forest-100: #d1dcef;
+  --color-forest-200: #a3b9df;
+  --color-forest-500: #0D4DB8;
+  --color-forest-600: #083d8a;
+  --color-forest-700: #062D6F;
+  --color-forest-800: #052456;
+  --color-forest-900: #041b43;
 
   /* Gold — premium CTA accent */
   --color-gold-50: #fffbeb;
@@ -38,16 +38,15 @@
   --color-gold-500: #d97706;
   --color-gold-600: #b45309;
   --color-gold-700: #92400e;
-  --color-gold-700: #92400e;
 
   /* Legacy aliases for minimal breakage */
-  --color-brand-50: #ecfdf5;
-  --color-brand-100: #d1fae5;
-  --color-brand-500: #059669;
-  --color-brand-600: #047857;
-  --color-brand-700: #065f46;
-  --color-brand-800: #0f4c3a;
-  --color-brand-900: #0a3d2e;
+  --color-brand-50: #e8eef7;
+  --color-brand-100: #d1dcef;
+  --color-brand-500: #0D4DB8;
+  --color-brand-600: #083d8a;
+  --color-brand-700: #062D6F;
+  --color-brand-800: #052456;
+  --color-brand-900: #041b43;
   --color-accent-50: #fffbeb;
   --color-accent-500: #d97706;
   --color-accent-600: #b45309;
@@ -85,9 +84,14 @@
     @apply font-display text-ink tracking-tight;
   }
 
+  input[type='checkbox'],
+  input[type='radio'] {
+    @apply text-forest-700 focus:ring-2 focus:ring-forest-600 focus:ring-offset-2;
+  }
+
   ::selection {
-    background: #d1fae5;
-    color: #0a3d2e;
+    background: #d1dcef;
+    color: #041b43;
   }
 }
 
@@ -147,12 +151,40 @@
     @apply border-red-400 focus:border-red-500 focus:ring-red-100;
   }
 
+  .alert-error {
+    @apply rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800;
+  }
+
+  .alert-success {
+    @apply rounded-lg border border-forest-200 bg-forest-50 px-4 py-3 text-sm text-forest-900;
+  }
+
+  .alert-warning {
+    @apply rounded-lg border border-gold-100 bg-gold-50 px-4 py-3 text-sm text-gold-700;
+  }
+
+  .alert-info {
+    @apply rounded-lg border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-ink-2;
+  }
+
+  .icon-btn {
+    @apply inline-flex min-h-11 min-w-11 items-center justify-center rounded-md text-ink-2 transition-colors hover:bg-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest-600 focus-visible:ring-offset-2;
+  }
+
+  .empty-inline {
+    @apply rounded-xl border border-dashed border-stone-300 bg-stone-50/50 px-6 py-12 text-center text-sm text-ink-3;
+  }
+
   .btn-primary {
-    @apply inline-flex items-center justify-center rounded-md bg-forest-800 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-forest-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest-600 focus-visible:ring-offset-2;
+    @apply inline-flex min-h-11 items-center justify-center rounded-md bg-forest-800 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-forest-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest-600 focus-visible:ring-offset-2;
   }
 
   .btn-secondary {
-    @apply inline-flex items-center justify-center rounded-md border border-stone-300 bg-white px-5 py-2.5 text-sm font-semibold text-ink transition-colors hover:border-stone-400 hover:bg-stone-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 focus-visible:ring-offset-2;
+    @apply inline-flex min-h-11 items-center justify-center rounded-md border border-stone-300 bg-white px-5 py-2.5 text-sm font-semibold text-ink transition-colors hover:border-stone-400 hover:bg-stone-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 focus-visible:ring-offset-2;
+  }
+
+  .action-link {
+    @apply inline-flex min-h-11 items-center rounded-md px-2 text-sm font-semibold text-forest-800 transition-colors hover:text-forest-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest-600 focus-visible:ring-offset-2;
   }
 
   .btn-ghost {

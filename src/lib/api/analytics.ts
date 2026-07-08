@@ -1,19 +1,4 @@
-import { getApiBaseUrl } from './client'
-import { getAccessToken } from './tokenStorage'
-
-async function authFetch(path: string, init: RequestInit = {}) {
-  const token = getAccessToken()
-  const headers = new Headers(init.headers)
-  headers.set('Accept', 'application/json')
-  if (token) headers.set('Authorization', `Bearer ${token}`)
-  const res = await fetch(`${getApiBaseUrl()}${path}`, { ...init, headers })
-  const payload = await res.json().catch(() => ({}))
-  if (!res.ok) {
-    const message = (payload as { message?: string | string[] }).message ?? `Request failed (${res.status})`
-    throw new Error(Array.isArray(message) ? message.join(', ') : String(message))
-  }
-  return payload
-}
+import { authorizedDownload, authorizedFetch } from './client'
 
 export interface StudentAnalytics {
   overallProgress: number
@@ -46,15 +31,15 @@ export interface InstructorAnalytics {
 }
 
 export function fetchStudentAnalytics() {
-  return authFetch('/analytics/student/me') as Promise<StudentAnalytics>
+  return authorizedFetch('/analytics/student/me') as Promise<StudentAnalytics>
 }
 
 export function fetchStudentAnalyticsWidgets() {
-  return authFetch('/analytics/student/widgets')
+  return authorizedFetch('/analytics/student/widgets')
 }
 
 export function fetchStudentCourseTime(courseSlug: string) {
-  return authFetch(`/analytics/student/courses/${encodeURIComponent(courseSlug)}/time`)
+  return authorizedFetch(`/analytics/student/courses/${encodeURIComponent(courseSlug)}/time`)
 }
 
 export function fetchInstructorAnalytics(params?: {
@@ -69,16 +54,16 @@ export function fetchInstructorAnalytics(params?: {
   if (params?.from) qs.set('from', params.from)
   if (params?.to) qs.set('to', params.to)
   const q = qs.toString()
-  return authFetch(`/analytics/instructor/me${q ? `?${q}` : ''}`) as Promise<InstructorAnalytics>
+  return authorizedFetch(`/analytics/instructor/me${q ? `?${q}` : ''}`) as Promise<InstructorAnalytics>
 }
 
 export function fetchInstructorAnalyticsWidgets() {
-  return authFetch('/analytics/instructor/widgets')
+  return authorizedFetch('/analytics/instructor/widgets')
 }
 
 export function fetchInstructorHeatmap(courseSlug?: string) {
   const q = courseSlug ? `?courseSlug=${encodeURIComponent(courseSlug)}` : ''
-  return authFetch(`/analytics/instructor/heatmap${q}`)
+  return authorizedFetch(`/analytics/instructor/heatmap${q}`)
 }
 
 export async function downloadReport(
@@ -86,21 +71,37 @@ export async function downloadReport(
   format: 'csv' | 'pdf' | 'xlsx' = 'csv',
   params?: { courseSlug?: string; batchId?: string; from?: string; to?: string },
 ) {
-  const token = getAccessToken()
   const qs = new URLSearchParams({ format })
   if (params?.courseSlug) qs.set('courseSlug', params.courseSlug)
   if (params?.batchId) qs.set('batchId', params.batchId)
   if (params?.from) qs.set('from', params.from)
   if (params?.to) qs.set('to', params.to)
-  const res = await fetch(`${getApiBaseUrl()}/reports/${type}?${qs}`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  })
-  if (!res.ok) throw new Error('Failed to download report')
-  const blob = await res.blob()
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `${type}-${new Date().toISOString().slice(0, 10)}.${format === 'xlsx' ? 'xlsx' : format}`
-  a.click()
-  URL.revokeObjectURL(url)
+  return authorizedDownload(
+    `/reports/${type}?${qs}`,
+    `${type}-${new Date().toISOString().slice(0, 10)}.${format === 'xlsx' ? 'xlsx' : format}`,
+  )
+}
+
+export function downloadStudentProgressReport(format: 'csv' | 'pdf' | 'xlsx' = 'csv', courseSlug?: string) {
+  return downloadReport('student-progress', format, courseSlug ? { courseSlug } : undefined)
+}
+
+export function downloadAssignmentReport(format: 'csv' | 'pdf' | 'xlsx' = 'csv', courseSlug?: string) {
+  return downloadReport('assignments', format, courseSlug ? { courseSlug } : undefined)
+}
+
+export function downloadQuizReport(format: 'csv' | 'pdf' | 'xlsx' = 'csv', courseSlug?: string) {
+  return downloadReport('quizzes', format, courseSlug ? { courseSlug } : undefined)
+}
+
+export function downloadBatchReport(format: 'csv' | 'pdf' | 'xlsx' = 'csv', batchId?: string) {
+  return downloadReport('batches', format, batchId ? { batchId } : undefined)
+}
+
+export function downloadCourseReport(format: 'csv' | 'pdf' | 'xlsx' = 'csv', courseSlug?: string) {
+  return downloadReport('courses', format, courseSlug ? { courseSlug } : undefined)
+}
+
+export function downloadCertificateReport(format: 'csv' | 'pdf' | 'xlsx' = 'csv', courseSlug?: string) {
+  return downloadReport('certificates', format, courseSlug ? { courseSlug } : undefined)
 }

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { UserRole } from '@prisma/client'
+import { BRAND, resolveBrandLogoUrl } from '../../config/branding.constants'
 import { escapeHtml, formatExpiryLabel } from './mail.utils'
 
 export interface EmailLayoutOptions {
@@ -18,8 +19,10 @@ export class TemplateService {
   private readonly logoUrl: string | null
 
   constructor(private config: ConfigService) {
-    this.appName = this.config.get<string>('APP_NAME') ?? 'SG Pro Growth'
-    this.logoUrl = this.config.get<string>('APP_LOGO_URL') ?? null
+    this.appName = this.config.get<string>('APP_NAME') ?? BRAND.name
+    const appUrl = this.config.get<string>('APP_URL') ?? ''
+    const explicitLogo = this.config.get<string>('APP_LOGO_URL')
+    this.logoUrl = resolveBrandLogoUrl(appUrl, explicitLogo)
   }
 
   renderLayout(options: EmailLayoutOptions): string {
@@ -32,12 +35,12 @@ export class TemplateService {
     const logoBlock = this.logoUrl
       ? `<img src="${escapeHtml(this.logoUrl)}" alt="${escapeHtml(this.appName)}" width="140" height="40" style="display:block;border:0;max-width:140px;height:auto;" />`
       : `<p style="margin:0;font-size:18px;font-weight:700;color:#ffffff;letter-spacing:-0.02em;">${escapeHtml(this.appName)}</p>
-         <p style="margin:4px 0 0;font-size:12px;color:#d6e8e0;text-transform:uppercase;letter-spacing:0.08em;">Learning Platform</p>`
+         <p style="margin:4px 0 0;font-size:12px;color:#d1dcef;text-transform:uppercase;letter-spacing:0.08em;">${escapeHtml(BRAND.tagline)}</p>`
 
     const ctaBlock =
       options.ctaLabel && options.ctaUrl
         ? `<p style="margin:28px 0 0;text-align:center;">
-            <a href="${escapeHtml(options.ctaUrl)}" style="display:inline-block;background:#1a4d3e;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:14px 28px;border-radius:8px;">${escapeHtml(options.ctaLabel)}</a>
+            <a href="${escapeHtml(options.ctaUrl)}" style="display:inline-block;background:${BRAND.primaryColor};color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:14px 28px;border-radius:8px;">${escapeHtml(options.ctaLabel)}</a>
           </p>`
         : ''
 
@@ -55,7 +58,7 @@ export class TemplateService {
       <td align="center">
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border:1px solid #e7e5e4;border-radius:12px;overflow:hidden;">
           <tr>
-            <td style="background:#1a4d3e;padding:24px 32px;">${logoBlock}</td>
+            <td style="background:${BRAND.primaryColor};padding:24px 32px;">${logoBlock}</td>
           </tr>
           <tr>
             <td style="padding:32px;">
@@ -67,7 +70,7 @@ export class TemplateService {
           <tr>
             <td style="padding:20px 32px;background:#fafaf9;border-top:1px solid #e7e5e4;">
               <p style="margin:0;font-size:12px;line-height:1.6;color:#78716c;">${footerNote}</p>
-              <p style="margin:12px 0 0;font-size:12px;color:#a8a29e;">© ${escapeHtml(this.appName)} · sgprogrowth.com</p>
+              <p style="margin:12px 0 0;font-size:12px;color:#a8a29e;">${escapeHtml(this.appName)} · <a href="${escapeHtml(BRAND.websiteUrl)}" style="color:#78716c;text-decoration:none;">sgprogrowth.com</a> · ${escapeHtml(BRAND.contactEmail)}</p>
             </td>
           </tr>
         </table>
@@ -102,7 +105,7 @@ export class TemplateService {
         <p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:#44403c;">Your email is verified and your account is active. You can now sign in and access your dashboard.</p>`,
       ctaLabel: 'Sign in to your account',
       ctaUrl: loginUrl,
-      footerNote: 'Coaching-led learning for professionals and enterprise teams.',
+      footerNote: BRAND.tagline,
     })
   }
 

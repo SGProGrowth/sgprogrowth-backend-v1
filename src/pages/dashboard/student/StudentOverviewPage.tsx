@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
-import { getGreeting } from '../../../data/studentData'
-import { useStudentDashboard } from '../../../hooks/useStudentDashboard'
+import { useStudentDashboard } from '../../../contexts/DashboardWorkspaceContext'
+import { getGreeting } from '../../../lib/greeting'
 import { ContinueLearningCard, EnrolledCourseCard } from '../../../components/student/CourseCards'
 import {
   LearningSummaryStrip,
@@ -8,7 +8,7 @@ import {
   UpcomingActivitiesList,
   WeeklyActivityChart,
 } from '../../../components/student/OverviewWidgets'
-import { Panel } from '../../../components/student/Panel'
+import { Panel, EmptyState } from '../../../components/student/Panel'
 import { Button } from '../../../components/ui/Button'
 
 export function StudentOverviewPage() {
@@ -53,11 +53,19 @@ export function StudentOverviewPage() {
               </Link>
             }
           >
-            <div className="grid gap-4 sm:grid-cols-2">
-              {activeCourses.map((course) => (
-                <EnrolledCourseCard key={course.id} course={course} variant="compact" />
-              ))}
-            </div>
+            {activeCourses.length > 0 ? (
+              <div className="grid gap-4 sm:grid-cols-2">
+                {activeCourses.map((course) => (
+                  <EnrolledCourseCard key={course.id} course={course} variant="compact" />
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                title="No active courses"
+                description="Browse the catalog to enroll in your next coaching-led program."
+                action={<Button to="/courses" variant="primary" size="sm">Browse courses</Button>}
+              />
+            )}
           </Panel>
         </div>
 

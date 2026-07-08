@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
+import { BrandLogo } from '../components/brand/BrandLogo'
+import { branding } from '../config/branding'
 
 interface AuthLayoutProps {
   children: ReactNode
@@ -27,26 +29,15 @@ export function AuthLayout({
           </div>
 
           <div className="relative p-10 xl:p-14">
-            <Link to="/" className="inline-flex items-center gap-2.5">
-              <div className="flex h-10 w-10 items-center justify-center rounded-md bg-white/10">
-                <span className="text-sm font-bold text-white tracking-tight">SG</span>
-              </div>
-              <div className="leading-none">
-                <span className="block font-display text-base font-bold text-white">SG Pro Growth</span>
-                <span className="block text-[10px] font-medium text-white/60 mt-0.5 uppercase tracking-wide">
-                  Learning Platform
-                </span>
-              </div>
-            </Link>
+            <BrandLogo variant="auth" className="rounded-md" />
 
             <div className="mt-16 max-w-md">
               <p className="text-label text-forest-200 mb-4">Coaching-led learning</p>
               <h2 className="font-display text-3xl font-bold leading-tight tracking-tight text-white xl:text-4xl">
-                Coaching before you learn. Clarity before you certify.
+                {branding.tagline}
               </h2>
               <p className="mt-5 text-base leading-relaxed text-white/70">
-                Personalised career guidance, mentored learning paths, and real-world IT certifications —
-                designed for professionals who want outcomes, not just certificates.
+                {branding.description}
               </p>
             </div>
           </div>
@@ -67,13 +58,8 @@ export function AuthLayout({
         {/* Form panel */}
         <div className="flex flex-col">
           <div className="flex items-center justify-between px-6 py-5 lg:px-10">
-            <Link to="/" className="inline-flex items-center gap-2 lg:hidden">
-              <div className="flex h-9 w-9 items-center justify-center rounded-md bg-forest-800">
-                <span className="text-sm font-bold text-white tracking-tight">SG</span>
-              </div>
-              <span className="font-display text-[15px] font-bold text-ink">SG Pro Growth</span>
-            </Link>
-            <Link to={backHref} className="text-sm font-semibold text-forest-800 hover:text-forest-900 ml-auto">
+            <BrandLogo variant="navbar" className="lg:hidden" />
+            <Link to={backHref} className="text-sm font-semibold text-forest-800 transition-colors hover:text-forest-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest-600 focus-visible:ring-offset-2 rounded-md ml-auto">
               {backLabel}
             </Link>
           </div>

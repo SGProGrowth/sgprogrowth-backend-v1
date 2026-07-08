@@ -1,5 +1,6 @@
 import { pipeStreamToResponse } from '../../common/pipe-stream-to-response'
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -15,11 +16,14 @@ import {
 } from '@nestjs/common'
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express'
 import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger'
+import { Throttle } from '@nestjs/throttler'
 import { MediaAssetType, UserRole } from '@prisma/client'
 import type { Response } from 'express'
 import { CurrentUser, JwtPayload, Roles } from '../../common/decorators/auth.decorator'
-import { MediaListQueryDto, SignedUrlQueryDto } from '../../common/dto/media.dto'
+import { ThrottleLimits } from '../../config/throttle.constants'
+import { MediaListQueryDto, MediaUploadBodyDto, SignedUrlQueryDto } from '../../common/dto/media.dto'
 import { JwtAuthGuard, RolesGuard } from '../../common/guards/auth.guards'
+import { multerMemoryOptions, sanitizeContentDispositionFilename } from '../../common/multer-options'
 import { MediaService } from './media.service'
 
 @ApiTags('media')
@@ -43,62 +47,63 @@ export class MediaController {
 
   @Post('upload')
   @Roles(UserRole.student, UserRole.instructor)
+  @Throttle({ default: ThrottleLimits.upload })
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', multerMemoryOptions))
   upload(
     @CurrentUser() user: JwtPayload,
     @UploadedFile() file: Express.Multer.File,
-    @Body('assetType') assetType: MediaAssetType,
-    @Body('courseSlug') courseSlug?: string,
-    @Body('batchId') batchId?: string,
-    @Body('lessonId') lessonId?: string,
-    @Body('replaceAssetId') replaceAssetId?: string,
+    @Body() body: MediaUploadBodyDto,
   ) {
-    return this.mediaService.upload(user.sub, user.activeRole, assetType ?? MediaAssetType.other, file, {
-      courseSlug,
-      batchId,
-      lessonId,
-      replaceAssetId,
+    if (!file) throw new BadRequestException('File is required')
+    return this.mediaService.upload(user.sub, user.activeRole, body.assetType, file, {
+      courseSlug: body.courseSlug,
+      batchId: body.batchId,
+      lessonId: body.lessonId,
+      replaceAssetId: body.replaceAssetId,
     })
   }
 
   @Post('upload/batch')
   @Roles(UserRole.student, UserRole.instructor)
+  @Throttle({ default: ThrottleLimits.upload })
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FilesInterceptor('files', 10))
+  @UseInterceptors(FilesInterceptor('files', 10, multerMemoryOptions))
   uploadMany(
     @CurrentUser() user: JwtPayload,
     @UploadedFiles() files: Express.Multer.File[],
-    @Body('assetType') assetType: MediaAssetType,
-    @Body('courseSlug') courseSlug?: string,
-    @Body('batchId') batchId?: string,
-    @Body('lessonId') lessonId?: string,
+    @Body() body: MediaUploadBodyDto,
   ) {
-    return this.mediaService.uploadMany(user.sub, user.activeRole, assetType ?? MediaAssetType.other, files ?? [], {
-      courseSlug,
-      batchId,
-      lessonId,
+    if (!files?.length) throw new BadRequestException('At least one file is required')
+    return this.mediaService.uploadMany(user.sub, user.activeRole, body.assetType, files, {
+      courseSlug: body.courseSlug,
+      batchId: body.batchId,
+      lessonId: body.lessonId,
     })
   }
 
   @Post('avatars')
   @Roles(UserRole.student, UserRole.instructor)
+  @Throttle({ default: ThrottleLimits.upload })
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', multerMemoryOptions))
   uploadAvatar(@CurrentUser() user: JwtPayload, @UploadedFile() file: Express.Multer.File) {
+    if (!file) throw new BadRequestException('File is required')
     return this.mediaService.upload(user.sub, user.activeRole, MediaAssetType.avatar, file)
   }
 
   @Post('courses/:courseSlug/thumbnail')
   @Roles(UserRole.instructor)
+  @Throttle({ default: ThrottleLimits.upload })
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', multerMemoryOptions))
   uploadCourseThumbnail(
     @CurrentUser() user: JwtPayload,
     @Param('courseSlug') courseSlug: string,
     @UploadedFile() file: Express.Multer.File,
     @Body('replaceAssetId') replaceAssetId?: string,
   ) {
+    if (!file) throw new BadRequestException('File is required')
     return this.mediaService.upload(user.sub, user.activeRole, MediaAssetType.course_thumbnail, file, {
       courseSlug,
       replaceAssetId,
@@ -107,14 +112,16 @@ export class MediaController {
 
   @Post('courses/:courseSlug/banner')
   @Roles(UserRole.instructor)
+  @Throttle({ default: ThrottleLimits.upload })
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', multerMemoryOptions))
   uploadCourseBanner(
     @CurrentUser() user: JwtPayload,
     @Param('courseSlug') courseSlug: string,
     @UploadedFile() file: Express.Multer.File,
     @Body('replaceAssetId') replaceAssetId?: string,
   ) {
+    if (!file) throw new BadRequestException('File is required')
     return this.mediaService.upload(user.sub, user.activeRole, MediaAssetType.course_banner, file, {
       courseSlug,
       replaceAssetId,
@@ -123,14 +130,16 @@ export class MediaController {
 
   @Post('batches/:batchId/thumbnail')
   @Roles(UserRole.instructor)
+  @Throttle({ default: ThrottleLimits.upload })
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', multerMemoryOptions))
   uploadBatchThumbnail(
     @CurrentUser() user: JwtPayload,
     @Param('batchId') batchId: string,
     @UploadedFile() file: Express.Multer.File,
     @Body('replaceAssetId') replaceAssetId?: string,
   ) {
+    if (!file) throw new BadRequestException('File is required')
     return this.mediaService.upload(user.sub, user.activeRole, MediaAssetType.batch_thumbnail, file, {
       batchId,
       replaceAssetId,
@@ -139,13 +148,15 @@ export class MediaController {
 
   @Post('lessons/:lessonId/resources')
   @Roles(UserRole.instructor)
+  @Throttle({ default: ThrottleLimits.upload })
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', multerMemoryOptions))
   uploadLessonResource(
     @CurrentUser() user: JwtPayload,
     @Param('lessonId') lessonId: string,
     @UploadedFile() file: Express.Multer.File,
   ) {
+    if (!file) throw new BadRequestException('File is required')
     return this.mediaService.upload(user.sub, user.activeRole, MediaAssetType.lesson_resource, file, {
       lessonId,
     })
@@ -181,8 +192,9 @@ export class MediaController {
       user.activeRole,
       id,
     )
+    const safeFilename = sanitizeContentDispositionFilename(filename)
     res.setHeader('Content-Type', mimeType)
-    res.setHeader('Content-Disposition', `inline; filename="${filename}"`)
+    res.setHeader('Content-Disposition', `inline; filename="${safeFilename}"`)
     await pipeStreamToResponse(stream, res)
   }
 

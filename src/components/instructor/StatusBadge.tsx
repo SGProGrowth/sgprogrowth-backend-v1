@@ -6,10 +6,10 @@ const styles: Record<BadgeVariant, string> = {
   archived: 'bg-stone-200 text-ink-2',
   pending: 'bg-gold-50 text-gold-700',
   graded: 'bg-forest-50 text-forest-800',
-  active: 'bg-blue-50 text-blue-700',
+  active: 'bg-forest-50 text-forest-800',
   'at-risk': 'bg-red-50 text-red-700',
   completed: 'bg-forest-50 text-forest-800',
-  scheduled: 'bg-violet-50 text-violet-700',
+  scheduled: 'bg-gold-50 text-gold-700',
   sent: 'bg-forest-50 text-forest-800',
   private: 'bg-stone-200 text-ink-2',
 }

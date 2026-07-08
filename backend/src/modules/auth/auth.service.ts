@@ -3,6 +3,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common'
@@ -19,6 +20,8 @@ import type { AuthTokensDto, RegisterResponseDto } from '../../common/dto/auth.d
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name)
+
   constructor(
     private prisma: PrismaService,
     private usersService: UsersService,
@@ -46,7 +49,9 @@ export class AuthService {
     const email = input.email.trim().toLowerCase()
     const existing = await this.prisma.user.findUnique({ where: { email } })
     if (existing) {
-      throw new ConflictException('An account with this email already exists')
+      throw new ConflictException(
+        'Unable to create an account with this email. Try signing in or resetting your password.',
+      )
     }
 
     const organization = await this.organizationsService.getDefaultOrganization()
@@ -82,7 +87,13 @@ export class AuthService {
     })
 
     if (needsVerification) {
-      await this.authMail.sendVerificationEmail(user.id, email, displayName)
+      try {
+        await this.authMail.sendVerificationEmail(user.id, email, displayName)
+      } catch (err) {
+        this.logger.error(
+          `Failed to send verification email to ${email}: ${err instanceof Error ? err.message : err}`,
+        )
+      }
       return {
         message: 'Account created. Please check your email to verify your address before signing in.',
         email,
@@ -101,7 +112,7 @@ export class AuthService {
     }
   }
 
-  async verifyEmail(token: string): Promise<{ message: string; email: string }> {
+  async verifyEmail(token: string): Promise<{ message: string }> {
     const hash = this.authMail.hashToken(token)
     const record = await this.prisma.emailVerificationToken.findFirst({
       where: { tokenHash: hash, usedAt: null },
@@ -142,7 +153,6 @@ export class AuthService {
 
     return {
       message: 'Email verified successfully. You can now sign in.',
-      email: user.email,
     }
   }
 
@@ -260,7 +270,7 @@ export class AuthService {
 
     const roles = user.roles.map((r) => r.role)
     if (!roles.includes(input.role)) {
-      throw new UnauthorizedException(`This account is not registered as a ${input.role}`)
+      throw new UnauthorizedException('Invalid email or password')
     }
 
     const organizationId =
@@ -308,12 +318,16 @@ export class AuthService {
       throw new UnauthorizedException('Invalid or expired refresh token')
     }
 
+    const user = stored.user
+    if (user.status !== 'active') {
+      throw new UnauthorizedException('Invalid or expired refresh token')
+    }
+
     await this.prisma.refreshToken.update({
       where: { id: stored.id },
       data: { revokedAt: new Date() },
     })
 
-    const user = stored.user
     const roles = user.roles.map((r) => r.role)
     const activeRole =
       roles.includes(UserRole.instructor) && !roles.includes(UserRole.student)
@@ -345,6 +359,34 @@ export class AuthService {
       data: { revokedAt: new Date() },
     })
     return { message: 'Signed out successfully' }
+  }
+
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<{ message: string }> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } })
+    if (!user || user.status !== 'active') {
+      throw new UnauthorizedException('Invalid credentials')
+    }
+
+    const valid = await argon2.verify(user.passwordHash, currentPassword)
+    if (!valid) {
+      throw new UnauthorizedException('Current password is incorrect')
+    }
+
+    const passwordHash = await argon2.hash(newPassword)
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash },
+    })
+    await this.prisma.refreshToken.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    })
+
+    return { message: 'Password updated successfully' }
   }
 
   async getMe(userId: string, activeRole: UserRole) {
@@ -400,7 +442,10 @@ export class AuthService {
   }
 
   async getTestToken(email: string, type: 'verify' | 'reset') {
-    if (this.config.get<string>('E2E_TEST_MODE') !== 'true') {
+    if (
+      this.config.get<string>('NODE_ENV') === 'production' ||
+      this.config.get<string>('E2E_TEST_MODE') !== 'true'
+    ) {
       throw new ForbiddenException('Not available')
     }
     if (!email || !type) throw new BadRequestException('email and type required')

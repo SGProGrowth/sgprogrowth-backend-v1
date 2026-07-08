@@ -1,7 +1,9 @@
 import { type FormEvent, useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { verifyCertificatePublic, type CertificateVerification } from '../lib/api/certificates'
+import { AlertBanner } from '../components/ui/AlertBanner'
 import { Button } from '../components/ui/Button'
+import { getFriendlyErrorMessage } from '../lib/api/errors'
 
 export function VerifyCertificatePage() {
   const { credentialId: paramId } = useParams()
@@ -20,7 +22,7 @@ export function VerifyCertificatePage() {
       setResult(data)
     } catch (e) {
       setResult(null)
-      setError(e instanceof Error ? e.message : 'Verification failed')
+      setError(getFriendlyErrorMessage(e, 'Verification failed. Please check the credential ID and try again.'))
     } finally {
       setLoading(false)
     }
@@ -63,10 +65,12 @@ export function VerifyCertificatePage() {
         </form>
 
         {error && (
-          <p className="mt-4 text-center text-sm text-red-600">{error}</p>
+          <AlertBanner variant="error" className="mt-4">
+            {error}
+          </AlertBanner>
         )}
 
-        {result && (
+        {result && !error && (
           <div
             className={`mt-6 rounded-xl border p-6 ${
               result.valid

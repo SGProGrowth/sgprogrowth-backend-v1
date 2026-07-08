@@ -1,19 +1,4 @@
-import { getApiBaseUrl } from './client'
-import { getAccessToken } from './tokenStorage'
-
-async function authFetch(path: string, init: RequestInit = {}) {
-  const token = getAccessToken()
-  const headers = new Headers(init.headers)
-  headers.set('Accept', 'application/json')
-  if (token) headers.set('Authorization', `Bearer ${token}`)
-  const res = await fetch(`${getApiBaseUrl()}${path}`, { ...init, headers })
-  const payload = await res.json().catch(() => ({}))
-  if (!res.ok) {
-    const message = (payload as { message?: string | string[] }).message ?? `Request failed (${res.status})`
-    throw new Error(Array.isArray(message) ? message.join(', ') : String(message))
-  }
-  return payload
-}
+import { authorizedFetch } from './client'
 
 export interface CourseProgressDetail {
   courseId: string
@@ -56,19 +41,19 @@ export interface ProgressDashboard {
 }
 
 export function fetchProgressDashboard() {
-  return authFetch('/progress/me') as Promise<ProgressDashboard>
+  return authorizedFetch('/progress/me') as Promise<ProgressDashboard>
 }
 
 export function fetchCourseProgressDetail(courseSlug: string) {
-  return authFetch(`/progress/courses/${courseSlug}`) as Promise<CourseProgressDetail>
+  return authorizedFetch(`/progress/courses/${courseSlug}`) as Promise<CourseProgressDetail>
 }
 
 export function markLessonComplete(lessonId: string, courseSlug: string) {
-  return authFetch(`/progress/lessons/${lessonId}/courses/${courseSlug}/complete`, { method: 'POST' })
+  return authorizedFetch(`/progress/lessons/${lessonId}/courses/${courseSlug}/complete`, { method: 'POST' })
 }
 
 export function markLessonIncomplete(lessonId: string, courseSlug: string) {
-  return authFetch(`/progress/lessons/${lessonId}/courses/${courseSlug}/incomplete`, { method: 'POST' })
+  return authorizedFetch(`/progress/lessons/${lessonId}/courses/${courseSlug}/incomplete`, { method: 'POST' })
 }
 
 export function updateLessonProgress(
@@ -76,7 +61,7 @@ export function updateLessonProgress(
   courseSlug: string,
   data: { videoProgressPct?: number; timeSpentSeconds?: number; resourceDownloaded?: boolean; recordAccess?: boolean },
 ) {
-  return authFetch(`/progress/lessons/${lessonId}/courses/${courseSlug}`, {
+  return authorizedFetch(`/progress/lessons/${lessonId}/courses/${courseSlug}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
@@ -84,7 +69,7 @@ export function updateLessonProgress(
 }
 
 export function fetchInstructorCourseProgressAnalytics(courseSlug: string) {
-  return authFetch(`/progress/instructor/courses/${courseSlug}/analytics`) as Promise<{
+  return authorizedFetch(`/progress/instructor/courses/${courseSlug}/analytics`) as Promise<{
     courseId: string
     title: string
     totalStudents: number

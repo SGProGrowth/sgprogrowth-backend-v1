@@ -1,6 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
 import { PrismaService } from '../../prisma/prisma.module'
+import { CacheService } from '../../cache/cache.service'
 import { AnalyticsService } from '../analytics/analytics.service'
+import type { UpdateInstructorProfileDto } from '../../common/dto/profile.dto'
+
+const WORKSPACE_CACHE_TTL = 60
 
 function initials(name: string): string {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase() ?? '').join('')
@@ -34,9 +38,20 @@ export class InstructorsService {
   constructor(
     private prisma: PrismaService,
     private analyticsService: AnalyticsService,
+    private cache: CacheService,
   ) {}
 
   async getWorkspace(userId: string) {
+    const cacheKey = `workspace:instructor:${userId}`
+    const cached = await this.cache.get<Awaited<ReturnType<typeof this.buildWorkspace>>>(cacheKey)
+    if (cached) return cached
+
+    const workspace = await this.buildWorkspace(userId)
+    await this.cache.set(cacheKey, workspace, WORKSPACE_CACHE_TTL)
+    return workspace
+  }
+
+  private async buildWorkspace(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: {
@@ -45,23 +60,45 @@ export class InstructorsService {
           include: {
             category: true,
             modules: { include: { lessons: true }, orderBy: { sortOrder: 'asc' } },
-            enrollments: { include: { student: { include: { studentProfile: true } } } },
+            enrollments: {
+              include: {
+                student: {
+                  select: {
+                    id: true,
+                    email: true,
+                    studentProfile: { select: { displayName: true } },
+                  },
+                },
+              },
+            },
           },
         },
         assignments: {
           include: {
             course: true,
             submissions: {
+              take: 100,
+              orderBy: { submittedAt: 'desc' },
               include: {
                 enrollment: {
-                  include: { student: { include: { studentProfile: true } } },
+                  include: {
+                    student: {
+                      select: {
+                        id: true,
+                        email: true,
+                        studentProfile: { select: { displayName: true } },
+                      },
+                    },
+                  },
                 },
               },
             },
           },
         },
-        quizzes: { include: { course: true, questions: true } },
+        quizzes: { include: { course: true, _count: { select: { questions: true } } } },
         questions: {
+          take: 200,
+          orderBy: { updatedAt: 'desc' },
           include: { _count: { select: { quizQuestions: true } } },
         },
         announcements: { include: { course: true } },
@@ -208,7 +245,7 @@ export class InstructorsService {
       title: q.title,
       courseId: q.courseId ? user.instructedCourses.find((c) => c.id === q.courseId)?.slug ?? null : null,
       courseTitle: q.course?.title ?? 'All courses',
-      questions: q.questions.length,
+      questions: q._count.questions,
       duration: `${q.durationMinutes} min`,
       attempts: q.maxAttempts,
       status: q.status === 'published' ? ('published' as const) : ('draft' as const),
@@ -291,21 +328,7 @@ export class InstructorsService {
       studentsEnrolled: students.length,
     }
 
-    let analytics = defaultAnalytics
-    try {
-      analytics = await this.analyticsService.getInstructorOverviewForWorkspace(userId)
-    } catch {
-      analytics = {
-        ...defaultAnalytics,
-        topCourses: published.slice(0, 3).map((c) => ({
-          id: c.id,
-          title: c.title,
-          students: c.students,
-          completion: c.completion,
-          rating: c.rating,
-        })),
-      }
-    }
+    const analytics = await this.loadInstructorAnalytics(userId, published, defaultAnalytics)
 
     return {
       profile: {
@@ -350,6 +373,71 @@ export class InstructorsService {
       summary,
       analytics,
       unreadNotifications: notifications.filter((n) => !n.read).length,
+    }
+  }
+
+  async updateProfile(userId: string, input: UpdateInstructorProfileDto) {
+    const profile = await this.prisma.instructorProfile.findUnique({ where: { userId } })
+    if (!profile) throw new NotFoundException('Instructor profile not found')
+
+    await this.prisma.instructorProfile.update({
+      where: { userId },
+      data: {
+        displayName: input.displayName,
+        phone: input.phone,
+        designation: input.designation,
+        title: input.title,
+        bio: input.bio,
+        experience: input.experience,
+        organizationLabel: input.organizationLabel,
+        avatarUrl: input.avatarUrl,
+      },
+    })
+
+    await this.cache.invalidate(`workspace:instructor:${userId}`)
+    return this.getWorkspace(userId)
+  }
+
+  async markNotificationRead(userId: string, notificationId: string) {
+    const notification = await this.prisma.notification.findFirst({
+      where: { id: notificationId, userId },
+    })
+    if (!notification) throw new NotFoundException('Notification not found')
+
+    await this.prisma.notification.update({
+      where: { id: notificationId },
+      data: { readAt: new Date() },
+    })
+
+    return { message: 'Notification marked as read' }
+  }
+
+  async markAllNotificationsRead(userId: string) {
+    await this.prisma.notification.updateMany({
+      where: { userId, readAt: null },
+      data: { readAt: new Date() },
+    })
+    return { message: 'All notifications marked as read' }
+  }
+
+  private async loadInstructorAnalytics(
+    userId: string,
+    published: Array<{ id: string; title: string; students: number; completion: number; rating: number }>,
+    fallback: typeof defaultAnalytics,
+  ) {
+    try {
+      return await this.analyticsService.getInstructorOverviewForWorkspace(userId)
+    } catch {
+      return {
+        ...fallback,
+        topCourses: published.slice(0, 3).map((c) => ({
+          id: c.id,
+          title: c.title,
+          students: c.students,
+          completion: c.completion,
+          rating: c.rating,
+        })),
+      }
     }
   }
 }

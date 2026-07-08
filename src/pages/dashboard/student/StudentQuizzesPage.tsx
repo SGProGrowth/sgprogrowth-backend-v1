@@ -3,7 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import type { Quiz } from '../../../data/studentData'
 import { fetchStudentQuizAnalytics, fetchStudentQuizzes } from '../../../lib/api/quizzes'
 import { QuizAnalyticsPanel, QuizCard } from '../../../components/student/QuizCard'
-import { PageIntro, TabBar } from '../../../components/student/Panel'
+import { PageIntro, TabBar, EmptyState } from '../../../components/student/Panel'
+import { LoadingState } from '../../../components/ui/LoadingState'
+import { RequestError } from '../../../components/ui/RequestError'
+import { getFriendlyErrorMessage } from '../../../lib/api/errors'
 
 type StudentQuizRow = Quiz & { inProgressAttemptId?: string; latestAttemptId?: string; rawStatus?: string }
 
@@ -19,10 +22,12 @@ export function StudentQuizzesPage() {
     needsImprovement: '—',
     trend: '—',
   })
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
+    setError(null)
     try {
       const [list, stats] = await Promise.all([fetchStudentQuizzes(), fetchStudentQuizAnalytics()])
       setQuizzes(
@@ -33,8 +38,9 @@ export function StudentQuizzesPage() {
         })),
       )
       setAnalytics(stats)
-    } catch {
+    } catch (err) {
       setQuizzes([])
+      setError(getFriendlyErrorMessage(err, 'Unable to load quizzes.'))
     } finally {
       setLoading(false)
     }
@@ -80,15 +86,19 @@ export function StudentQuizzesPage() {
         description="Practice exams, knowledge checks, and module assessments — with coaching-led review sessions for certification prep."
       />
 
-      <div className="mb-8">
-        <QuizAnalyticsPanel {...analytics} />
-      </div>
+      {!error && (
+        <div className="mb-8">
+          <QuizAnalyticsPanel {...analytics} />
+        </div>
+      )}
 
       <TabBar tabs={tabs} active={tab} onChange={setTab} />
 
-      {loading && !displayed.length ? (
-        <p className="text-sm text-ink-3 py-8 text-center">Loading quizzes…</p>
-      ) : (
+      {error ? (
+        <RequestError title="Unable to load quizzes" message={error} onRetry={() => void load()} />
+      ) : loading && !displayed.length ? (
+        <LoadingState label="Loading quizzes…" />
+      ) : displayed.length > 0 ? (
         <div className="grid gap-4 sm:grid-cols-2">
           {displayed.map((quiz) => (
             <QuizCard
@@ -101,6 +111,16 @@ export function StudentQuizzesPage() {
             />
           ))}
         </div>
+      ) : (
+        <EmptyState
+          icon="quiz"
+          title={tab === 'completed' ? 'No completed quizzes yet' : 'No quizzes scheduled'}
+          description={
+            tab === 'completed'
+              ? 'Finish an assessment to see your results and review feedback here.'
+              : 'When your instructor publishes quizzes, they will appear in this list.'
+          }
+        />
       )}
     </div>
   )

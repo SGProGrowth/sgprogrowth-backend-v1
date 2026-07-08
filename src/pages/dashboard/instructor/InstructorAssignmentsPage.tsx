@@ -15,6 +15,7 @@ import { StatusBadge } from '../../../components/instructor/StatusBadge'
 import { Modal, ConfirmDialog, SuccessBanner } from '../../../components/instructor/Modal'
 import { FormField, SelectField, TextAreaField, ToggleField } from '../../../components/instructor/FormField'
 import { Button } from '../../../components/ui/Button'
+import { LoadingState } from '../../../components/ui/LoadingState'
 import { ProgressBar } from '../../../components/student/ProgressBar'
 
 const typeOptions = [
@@ -244,7 +245,7 @@ export function InstructorAssignmentsPage() {
       <TabBar tabs={tabs} active={tab} onChange={setTab} />
 
       {loading && !displayed.length ? (
-        <p className="text-sm text-ink-3 py-8 text-center">Loading assignments…</p>
+        <LoadingState label="Loading assignments…" />
       ) : displayed.length === 0 ? (
         <EmptyState title="No assignments found" description="Create your first assignment or adjust filters." />
       ) : (

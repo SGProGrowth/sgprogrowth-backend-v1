@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
-import { NotificationType, UserRole } from '@prisma/client'
+import { NotificationType } from '@prisma/client'
 import type { MailQueue } from './mail-queue.interface'
 import { MAIL_QUEUE } from './mail-queue.interface'
 import { TemplateService } from './template.service'

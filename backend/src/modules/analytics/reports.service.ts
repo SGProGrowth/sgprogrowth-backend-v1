@@ -81,7 +81,7 @@ export class ReportsService {
     params: { courseSlug?: string; batchId?: string },
   ) {
     const orgId = await this.defaultOrgId()
-    let studentId = ctx.userId
+    const studentId = ctx.userId
 
     if (ctx.role === 'instructor') {
       if (!params.courseSlug) throw new ForbiddenException('courseSlug required for instructor reports')

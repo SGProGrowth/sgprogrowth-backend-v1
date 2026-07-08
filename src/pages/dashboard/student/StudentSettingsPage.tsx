@@ -1,22 +1,70 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useAuth } from '../../../contexts/AuthContext'
-import { useStudentDashboard } from '../../../hooks/useStudentDashboard'
+import { useStudentDashboard } from '../../../contexts/DashboardWorkspaceContext'
 import { defaultLearningPreferences } from '../../../data/studentData'
 import { PageIntro, Panel } from '../../../components/student/Panel'
 import { UploadZone } from '../../../components/instructor/UploadZone'
 import { uploadAvatar } from '../../../lib/api/media'
+import { changePassword, updateStudentProfile } from '../../../lib/api/profile'
+import { getErrorMessage } from '../../../lib/api/errors'
+import { AlertBanner } from '../../../components/ui/AlertBanner'
 import { Button } from '../../../components/ui/Button'
 
 export function StudentSettingsPage() {
   const { user } = useAuth()
-  const { profile } = useStudentDashboard()
+  const { profile, refresh } = useStudentDashboard()
+  const [displayName, setDisplayName] = useState(user?.name ?? '')
+  const [title, setTitle] = useState(profile?.title ?? '')
+  const [organization, setOrganization] = useState(profile?.organization ?? '')
+  const [phone, setPhone] = useState(profile?.phone ?? '')
+  const [timezone, setTimezone] = useState(profile?.timezone ?? 'Asia/Kolkata')
   const [prefs, setPrefs] = useState(defaultLearningPreferences)
   const [saved, setSaved] = useState(false)
+  const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
   const [avatarUrl, setAvatarUrl] = useState<string | undefined>(undefined)
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
 
-  const handleSave = () => {
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
+  useEffect(() => {
+    if (!profile) return
+    setDisplayName(profile.name || user?.name || '')
+    setTitle(profile.title ?? '')
+    setOrganization(profile.organization ?? '')
+    setPhone(profile.phone ?? '')
+    setTimezone(profile.timezone ?? 'Asia/Kolkata')
+    const saved = profile.preferences
+    if (saved && typeof saved === 'object') {
+      setPrefs({ ...defaultLearningPreferences, ...saved } as typeof defaultLearningPreferences)
+    }
+  }, [profile, user?.name])
+
+  const handleSave = async () => {
+    setError('')
+    setSaving(true)
+    try {
+      await updateStudentProfile({
+        displayName: displayName.trim(),
+        title: title.trim() || undefined,
+        organizationLabel: organization.trim() || undefined,
+        phone: phone.trim() || undefined,
+        timezone,
+        avatarUrl,
+        preferences: prefs as unknown as Record<string, unknown>,
+      })
+      if (currentPassword && newPassword) {
+        await changePassword(currentPassword, newPassword)
+        setCurrentPassword('')
+        setNewPassword('')
+      }
+      await refresh()
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    } catch (err) {
+      setError(getErrorMessage(err))
+    } finally {
+      setSaving(false)
+    }
   }
 
   const togglePref = (key: keyof typeof prefs) => {
@@ -50,23 +98,23 @@ export function StudentSettingsPage() {
             <div className="flex-1 space-y-4">
               <div>
                 <label htmlFor="name" className="mb-1.5 block text-sm font-semibold text-ink">Full name</label>
-                <input id="name" type="text" defaultValue={user?.name} className="input-field w-full" />
+                <input id="name" type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)} className="input-field w-full" />
               </div>
               <div>
                 <label htmlFor="email" className="mb-1.5 block text-sm font-semibold text-ink">Email</label>
-                <input id="email" type="email" defaultValue={user?.email} className="input-field w-full" />
+                <input id="email" type="email" value={user?.email ?? ''} readOnly className="input-field w-full bg-stone-50" />
               </div>
               <div>
                 <label htmlFor="bio" className="mb-1.5 block text-sm font-semibold text-ink">Professional headline</label>
-                <input id="bio" type="text" defaultValue={profile?.title ?? ''} className="input-field w-full" placeholder="e.g. Software Engineer · AWS track" />
+                <input id="bio" type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="input-field w-full" placeholder="e.g. Software Engineer · AWS track" />
               </div>
               <div>
                 <label htmlFor="org" className="mb-1.5 block text-sm font-semibold text-ink">Organization</label>
-                <input id="org" type="text" defaultValue={profile?.organization ?? ''} className="input-field w-full" />
+                <input id="org" type="text" value={organization} onChange={(e) => setOrganization(e.target.value)} className="input-field w-full" />
               </div>
               <div>
                 <label htmlFor="phone" className="mb-1.5 block text-sm font-semibold text-ink">Phone</label>
-                <input id="phone" type="tel" defaultValue={profile?.phone ?? ''} className="input-field w-full" />
+                <input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="input-field w-full" />
               </div>
             </div>
           </div>
@@ -93,7 +141,7 @@ export function StudentSettingsPage() {
 
             <div>
               <label htmlFor="pace" className="mb-1.5 block text-sm font-semibold text-ink">Learning pace</label>
-              <select id="pace" className="input-field w-full max-w-xs" defaultValue={prefs.learningPace}>
+              <select id="pace" className="input-field w-full max-w-xs" value={prefs.learningPace} onChange={(e) => setPrefs((p) => ({ ...p, learningPace: e.target.value as typeof p.learningPace }))}>
                 <option value="relaxed">Relaxed — steady progress</option>
                 <option value="moderate">Moderate — balanced</option>
                 <option value="intensive">Intensive — certification focus</option>
@@ -102,7 +150,7 @@ export function StudentSettingsPage() {
 
             <div>
               <label htmlFor="timezone" className="mb-1.5 block text-sm font-semibold text-ink">Timezone</label>
-              <select id="timezone" className="input-field w-full max-w-xs" defaultValue={prefs.timezone}>
+              <select id="timezone" className="input-field w-full max-w-xs" value={timezone} onChange={(e) => setTimezone(e.target.value)}>
                 <option value="Asia/Kolkata">Asia/Kolkata (IST)</option>
                 <option value="America/New_York">America/New_York (EST)</option>
                 <option value="Europe/London">Europe/London (GMT)</option>
@@ -150,18 +198,26 @@ export function StudentSettingsPage() {
           <div className="space-y-4">
             <div>
               <label htmlFor="currentPassword" className="mb-1.5 block text-sm font-semibold text-ink">Current password</label>
-              <input id="currentPassword" type="password" className="input-field w-full max-w-md" placeholder="••••••••" />
+              <input id="currentPassword" type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className="input-field w-full max-w-md" placeholder="••••••••" />
             </div>
             <div>
               <label htmlFor="newPassword" className="mb-1.5 block text-sm font-semibold text-ink">New password</label>
-              <input id="newPassword" type="password" className="input-field w-full max-w-md" placeholder="At least 8 characters" />
+              <input id="newPassword" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="input-field w-full max-w-md" placeholder="At least 8 characters" />
             </div>
           </div>
         </Panel>
 
+        {error && <AlertBanner variant="error">{error}</AlertBanner>}
+
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-          <Button variant="primary" size="md" className="w-full sm:w-auto" onClick={handleSave}>Save changes</Button>
-          {saved && <span className="text-sm font-semibold text-forest-700">Settings saved</span>}
+          <Button variant="primary" size="md" className="w-full sm:w-auto" onClick={handleSave} disabled={saving}>
+            {saving ? 'Saving…' : 'Save changes'}
+          </Button>
+          {saved && (
+            <AlertBanner variant="success" className="flex-1 py-2 sm:max-w-xs" role="status">
+              Settings saved successfully
+            </AlertBanner>
+          )}
         </div>
       </div>
     </div>

@@ -423,7 +423,7 @@ export class QuestionsService {
     })
   }
 
-  async listTags(instructorId: string) {
+  async listTags() {
     const orgId = await this.defaultOrgId()
     return this.prisma.questionTag.findMany({
       where: { organizationId: orgId },

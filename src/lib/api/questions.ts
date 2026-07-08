@@ -1,5 +1,4 @@
-import { getApiBaseUrl } from './client'
-import { getAccessToken } from './tokenStorage'
+import { authorizedDownload, authorizedFetch, authorizedMultipart } from './client'
 import type { PaginatedResponse } from './courses'
 import type { QuestionBankItem, QuestionDifficulty, QuestionType } from '../../data/instructorData'
 
@@ -38,33 +37,6 @@ export interface CreateQuestionInput {
   options?: Array<{ label?: string; text: string; isCorrect?: boolean }>
 }
 
-async function authFetch(path: string, init: RequestInit = {}) {
-  const token = getAccessToken()
-  const headers = new Headers(init.headers)
-  headers.set('Accept', 'application/json')
-  if (token) headers.set('Authorization', `Bearer ${token}`)
-  const res = await fetch(`${getApiBaseUrl()}${path}`, { ...init, headers })
-  const payload = await res.json().catch(() => ({}))
-  if (!res.ok) {
-    const message = (payload as { message?: string | string[] }).message ?? `Request failed (${res.status})`
-    throw new Error(Array.isArray(message) ? message.join(', ') : String(message))
-  }
-  return payload
-}
-
-async function authMultipart(path: string, form: FormData) {
-  const token = getAccessToken()
-  const headers: Record<string, string> = { Accept: 'application/json' }
-  if (token) headers.Authorization = `Bearer ${token}`
-  const res = await fetch(`${getApiBaseUrl()}${path}`, { method: 'POST', headers, body: form })
-  const payload = await res.json().catch(() => ({}))
-  if (!res.ok) {
-    const message = (payload as { message?: string | string[] }).message ?? `Request failed (${res.status})`
-    throw new Error(Array.isArray(message) ? message.join(', ') : String(message))
-  }
-  return payload
-}
-
 const TYPE_TO_API: Record<string, string> = {
   'multiple-choice': 'multiple_choice',
   'multiple-choice-multi': 'multiple_choice_multi',
@@ -101,11 +73,11 @@ export function fetchQuestions(params?: {
   if (params?.status) qs.set('status', params.status)
   if (params?.sort) qs.set('sort', params.sort)
   const query = qs.toString()
-  return authFetch(`/questions${query ? `?${query}` : ''}`) as Promise<PaginatedResponse<QuestionDetail>>
+  return authorizedFetch(`/questions${query ? `?${query}` : ''}`) as Promise<PaginatedResponse<QuestionDetail>>
 }
 
 export function createQuestion(input: CreateQuestionInput) {
-  return authFetch('/questions', {
+  return authorizedFetch('/questions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -120,7 +92,7 @@ export function updateQuestion(id: string, input: Partial<CreateQuestionInput>) 
   if (input.type) {
     body.type = TYPE_TO_API[input.type as QuestionType] ?? input.type.replace(/-/g, '_')
   }
-  return authFetch(`/questions/${id}`, {
+  return authorizedFetch(`/questions/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -128,35 +100,35 @@ export function updateQuestion(id: string, input: Partial<CreateQuestionInput>) 
 }
 
 export function deleteQuestion(id: string) {
-  return authFetch(`/questions/${id}`, { method: 'DELETE' })
+  return authorizedFetch(`/questions/${id}`, { method: 'DELETE' })
 }
 
 export function archiveQuestion(id: string) {
-  return authFetch(`/questions/${id}/archive`, { method: 'POST' })
+  return authorizedFetch(`/questions/${id}/archive`, { method: 'POST' })
 }
 
 export function restoreQuestion(id: string) {
-  return authFetch(`/questions/${id}/restore`, { method: 'POST' })
+  return authorizedFetch(`/questions/${id}/restore`, { method: 'POST' })
 }
 
 export function duplicateQuestion(id: string) {
-  return authFetch(`/questions/${id}/duplicate`, { method: 'POST' }) as Promise<QuestionDetail>
+  return authorizedFetch(`/questions/${id}/duplicate`, { method: 'POST' }) as Promise<QuestionDetail>
 }
 
 export function previewQuestion(id: string) {
-  return authFetch(`/questions/${id}/preview`) as Promise<QuestionDetail>
+  return authorizedFetch(`/questions/${id}/preview`) as Promise<QuestionDetail>
 }
 
 export function importQuestionsCsv(file: File) {
   const form = new FormData()
   form.append('file', file)
-  return authMultipart('/questions/import/csv', form) as Promise<{ imported: number; failed: number; errors: Array<{ row: number; message: string }> }>
+  return authorizedMultipart('/questions/import/csv', 'POST', form) as Promise<{ imported: number; failed: number; errors: Array<{ row: number; message: string }> }>
 }
 
 export function importQuestionsExcel(file: File) {
   const form = new FormData()
   form.append('file', file)
-  return authMultipart('/questions/import/excel', form) as Promise<{ imported: number; failed: number; errors: Array<{ row: number; message: string }> }>
+  return authorizedMultipart('/questions/import/excel', 'POST', form) as Promise<{ imported: number; failed: number; errors: Array<{ row: number; message: string }> }>
 }
 
 export function importQuestionsFile(file: File) {
@@ -167,34 +139,12 @@ export function importQuestionsFile(file: File) {
 
 export async function exportQuestionsExcel(params?: { status?: string }) {
   const qs = params?.status ? `?status=${params.status}` : ''
-  const token = getAccessToken()
-  const res = await fetch(`${getApiBaseUrl()}/questions/export/excel${qs}`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  })
-  if (!res.ok) throw new Error('Export failed')
-  const blob = await res.blob()
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = 'questions.xlsx'
-  a.click()
-  URL.revokeObjectURL(url)
+  return authorizedDownload(`/questions/export/excel${qs}`, 'questions.xlsx')
 }
 
 export async function exportQuestionsCsv(params?: { status?: string }) {
   const qs = params?.status ? `?status=${params.status}` : ''
-  const token = getAccessToken()
-  const res = await fetch(`${getApiBaseUrl()}/questions/export/csv${qs}`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  })
-  if (!res.ok) throw new Error('Export failed')
-  const blob = await res.blob()
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = 'questions.csv'
-  a.click()
-  URL.revokeObjectURL(url)
+  return authorizedDownload(`/questions/export/csv${qs}`, 'questions.csv')
 }
 
 const API_TO_TYPE: Record<string, QuestionType> = {

@@ -7,7 +7,11 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "verify:backend": "node scripts/verify-backend.mjs",
+    "verify:frontend": "node scripts/verify-frontend.mjs",
+    "verify:cross-browser": "node scripts/verify-cross-browser.mjs",
+    "verify:responsive": "node scripts/verify-responsive.mjs"
   },
   "dependencies": {
     "react": "^19.2.6",

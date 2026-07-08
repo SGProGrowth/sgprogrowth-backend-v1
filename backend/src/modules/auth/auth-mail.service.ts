@@ -21,7 +21,8 @@ export class AuthMailService {
   ) {}
 
   hashToken(token: string): string {
-    return createHash('sha256').update(token).digest('hex')
+    const pepper = this.config.get<string>('APP_SECRET')!
+    return createHash('sha256').update(`${pepper}:${token}`).digest('hex')
   }
 
   createToken(): string {
@@ -96,6 +97,10 @@ export class AuthMailService {
 
   private async storeTestToken(email: string, kind: 'verify' | 'reset', token: string) {
     if (this.config.get<string>('E2E_TEST_MODE') !== 'true') return
-    await this.redis.set(`e2e:token:${kind}:${email.toLowerCase()}`, token, 600)
+    try {
+      await this.redis.set(`e2e:token:${kind}:${email.toLowerCase()}`, token, 600)
+    } catch {
+      // Redis optional — E2E token helper degrades gracefully when Redis is unavailable
+    }
   }
 }

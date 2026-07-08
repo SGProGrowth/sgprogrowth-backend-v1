@@ -17,6 +17,7 @@ import { PageIntro, TabBar, StatTile, EmptyState } from '../../../components/das
 import { Modal, ConfirmDialog, SuccessBanner } from '../../../components/instructor/Modal'
 import { FormField, SelectField, TextAreaField } from '../../../components/instructor/FormField'
 import { Button } from '../../../components/ui/Button'
+import { LoadingState } from '../../../components/ui/LoadingState'
 import { ResponsiveTable, MobileDataCard } from '../../../components/ui/ResponsiveTable'
 import type { QuestionBankItem } from '../../../data/instructorData'
 import type { QuestionDetail } from '../../../lib/api/questions'
@@ -203,7 +204,7 @@ export function InstructorQuestionBankPage() {
         title="Question Bank"
         description="Build a reusable library of questions for quizzes, exams, and course assessments."
         action={
-          <div className="flex gap-2">
+          <div className="flex w-full flex-wrap gap-2">
             <Button variant="secondary" size="md" onClick={() => void exportQuestionsCsv({ status: tab === 'active' ? 'active' : 'archived' })}>Export CSV</Button>
             <Button variant="secondary" size="md" onClick={() => void exportQuestionsExcel({ status: tab === 'active' ? 'active' : 'archived' })}>Export Excel</Button>
             <Button variant="secondary" size="md" onClick={() => fileInputRef.current?.click()}>Import questions</Button>
@@ -246,12 +247,12 @@ export function InstructorQuestionBankPage() {
       <TabBar tabs={tabs.map((t) => ({ ...t, count: t.count ?? 0 }))} active={tab} onChange={setTab} />
 
       {loading && !displayed.length ? (
-        <p className="text-sm text-ink-3 py-8 text-center">Loading questions…</p>
+        <LoadingState label="Loading questions…" />
       ) : displayed.length === 0 ? (
         <EmptyState title="No questions found" description="Add questions to your bank or adjust filters." />
       ) : (
         <>
-          <div className="space-y-3 md:hidden">
+          <div className="space-y-3 lg:hidden">
             {displayed.map((q) => (
               <MobileDataCard
                 key={q.id}
@@ -269,10 +270,10 @@ export function InstructorQuestionBankPage() {
                 ]}
                 actions={
                   <>
-                    <button type="button" className="min-h-11 text-sm font-semibold text-forest-800" onClick={() => void openPreview(q.id)}>Preview</button>
-                    <button type="button" className="min-h-11 text-sm font-semibold text-forest-800" onClick={() => openEdit(q)}>Edit</button>
-                    <button type="button" className="min-h-11 text-sm font-semibold text-forest-800" onClick={() => void duplicateQuestion(q.id).then(load)}>Duplicate</button>
-                    <button type="button" className="min-h-11 text-sm font-semibold text-red-600" onClick={() => setArchiveTarget(q.id)}>
+                    <button type="button" className="action-link" onClick={() => void openPreview(q.id)}>Preview</button>
+                    <button type="button" className="action-link" onClick={() => openEdit(q)}>Edit</button>
+                    <button type="button" className="action-link" onClick={() => void duplicateQuestion(q.id).then(load)}>Duplicate</button>
+                    <button type="button" className="action-link text-red-600 hover:text-red-700" onClick={() => setArchiveTarget(q.id)}>
                       {tab === 'archived' ? 'Restore' : 'Archive'}
                     </button>
                   </>
@@ -281,7 +282,7 @@ export function InstructorQuestionBankPage() {
             ))}
           </div>
 
-          <ResponsiveTable className="hidden md:block rounded-xl border border-stone-200 bg-white">
+          <ResponsiveTable className="hidden lg:block rounded-xl border border-stone-200 bg-white">
             <table className="w-full min-w-[800px] text-sm">
               <thead>
                 <tr className="border-b border-stone-100 bg-stone-50 text-left">
@@ -315,11 +316,11 @@ export function InstructorQuestionBankPage() {
                     <td className="px-5 py-4 font-semibold text-ink">{q.points}</td>
                     <td className="px-5 py-4 text-ink-3">{q.usedIn} quiz{q.usedIn !== 1 ? 'zes' : ''}</td>
                     <td className="px-5 py-4">
-                      <div className="flex gap-2">
-                        <button type="button" className="text-sm font-semibold text-forest-800" onClick={() => void openPreview(q.id)}>Preview</button>
-                        <button type="button" className="text-sm font-semibold text-forest-800" onClick={() => openEdit(q)}>Edit</button>
-                        <button type="button" className="text-sm font-semibold text-forest-800" onClick={() => void duplicateQuestion(q.id).then(load)}>Duplicate</button>
-                        <button type="button" className="text-sm font-semibold text-red-600" onClick={() => setArchiveTarget(q.id)}>
+                      <div className="flex flex-wrap gap-x-3 gap-y-1">
+                        <button type="button" className="action-link" onClick={() => void openPreview(q.id)}>Preview</button>
+                        <button type="button" className="action-link" onClick={() => openEdit(q)}>Edit</button>
+                        <button type="button" className="action-link" onClick={() => void duplicateQuestion(q.id).then(load)}>Duplicate</button>
+                        <button type="button" className="action-link text-red-600 hover:text-red-700" onClick={() => setArchiveTarget(q.id)}>
                           {tab === 'archived' ? 'Restore' : 'Archive'}
                         </button>
                       </div>

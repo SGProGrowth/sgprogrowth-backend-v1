@@ -2,8 +2,8 @@ import { Link } from 'react-router-dom'
 import type { Notification, NotificationType } from '../../data/studentData'
 
 const typeConfig: Record<NotificationType, { icon: string; bg: string }> = {
-  course: { icon: '📚', bg: 'bg-blue-50' },
-  announcement: { icon: '📢', bg: 'bg-violet-50' },
+  course: { icon: '📚', bg: 'bg-stone-100' },
+  announcement: { icon: '📢', bg: 'bg-forest-50' },
   deadline: { icon: '⏰', bg: 'bg-red-50' },
   coaching: { icon: '💬', bg: 'bg-gold-50' },
   achievement: { icon: '🏆', bg: 'bg-forest-50' },

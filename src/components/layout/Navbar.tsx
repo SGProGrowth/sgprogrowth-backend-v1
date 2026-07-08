@@ -8,6 +8,7 @@ import { NavDropdown } from './NavDropdown'
 import { Button } from '../ui/Button'
 import { SearchBar } from '../ui/SearchBar'
 import { resolveMarketingHref } from '../../lib/navigation'
+import { BrandLogo } from '../brand/BrandLogo'
 
 export function Navbar() {
   const { isAuthenticated, user } = useAuth()
@@ -39,19 +40,7 @@ export function Navbar() {
     >
       <Container as="nav" aria-label="Main navigation">
         <div className="flex h-16 items-center gap-6">
-          <Link
-            to="/"
-            className="flex shrink-0 items-center gap-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest-600 focus-visible:ring-offset-2"
-            onClick={close}
-          >
-            <div className="flex h-9 w-9 items-center justify-center rounded-md bg-forest-800">
-              <span className="text-sm font-bold text-white tracking-tight">SG</span>
-            </div>
-            <div className="hidden sm:block leading-none">
-              <span className="block font-display text-[15px] font-bold text-ink">SG Pro Growth</span>
-              <span className="block text-[10px] font-medium text-ink-3 mt-0.5 tracking-wide uppercase">Learning Platform</span>
-            </div>
-          </Link>
+          <BrandLogo variant="navbar" onClick={close} />
 
           <div className="hidden lg:flex items-center gap-0.5 ml-4">
             {navItems.map((item) => (
@@ -111,7 +100,7 @@ export function Navbar() {
                   {item.href && !item.children ? (
                     <Link
                       to={resolveMarketingHref(item.href)}
-                      className="text-[15px] font-semibold text-ink"
+                      className="flex min-h-11 items-center text-[15px] font-semibold text-ink"
                       onClick={close}
                     >
                       {item.label}
@@ -123,7 +112,7 @@ export function Navbar() {
                         <Link
                           key={child.label}
                           to={resolveMarketingHref(child.href)}
-                          className="block py-2 text-sm text-ink-2 hover:text-forest-800 transition-colors"
+                          className="flex min-h-11 items-center text-sm text-ink-2 hover:text-forest-800 transition-colors"
                           onClick={close}
                         >
                           {child.label}

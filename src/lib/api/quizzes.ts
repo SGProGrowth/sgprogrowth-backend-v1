@@ -1,22 +1,7 @@
-import { getApiBaseUrl } from './client'
-import { getAccessToken } from './tokenStorage'
+import { authorizedFetch } from './client'
 import type { PaginatedResponse } from './courses'
 import type { InstructorQuiz } from '../../data/instructorData'
 import type { Quiz } from '../../data/studentData'
-
-async function authFetch(path: string, init: RequestInit = {}) {
-  const token = getAccessToken()
-  const headers = new Headers(init.headers)
-  headers.set('Accept', 'application/json')
-  if (token) headers.set('Authorization', `Bearer ${token}`)
-  const res = await fetch(`${getApiBaseUrl()}${path}`, { ...init, headers })
-  const payload = await res.json().catch(() => ({}))
-  if (!res.ok) {
-    const message = (payload as { message?: string | string[] }).message ?? `Request failed (${res.status})`
-    throw new Error(Array.isArray(message) ? message.join(', ') : String(message))
-  }
-  return payload
-}
 
 export interface QuizDetail extends InstructorQuiz {
   description?: string | null
@@ -121,11 +106,11 @@ export function fetchInstructorQuizzes(params?: {
   if (params?.course) qs.set('course', params.course)
   if (params?.generic !== undefined) qs.set('generic', String(params.generic))
   const query = qs.toString()
-  return authFetch(`/quizzes/mine${query ? `?${query}` : ''}`) as Promise<PaginatedResponse<InstructorQuiz>>
+  return authorizedFetch(`/quizzes/mine${query ? `?${query}` : ''}`) as Promise<PaginatedResponse<InstructorQuiz>>
 }
 
 export function fetchStudentQuizzes() {
-  return authFetch('/quizzes/me') as Promise<
+  return authorizedFetch('/quizzes/me') as Promise<
     Array<
       Quiz & {
         inProgressAttemptId?: string
@@ -137,7 +122,7 @@ export function fetchStudentQuizzes() {
 }
 
 export function fetchStudentQuizAnalytics() {
-  return authFetch('/quizzes/me/analytics') as Promise<{
+  return authorizedFetch('/quizzes/me/analytics') as Promise<{
     averageScore: number
     quizzesTaken: number
     passRate: number
@@ -148,7 +133,7 @@ export function fetchStudentQuizAnalytics() {
 }
 
 export function createQuiz(input: CreateQuizInput) {
-  return authFetch('/quizzes', {
+  return authorizedFetch('/quizzes', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
@@ -156,7 +141,7 @@ export function createQuiz(input: CreateQuizInput) {
 }
 
 export function updateQuiz(id: string, input: Partial<CreateQuizInput>) {
-  return authFetch(`/quizzes/${id}`, {
+  return authorizedFetch(`/quizzes/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
@@ -164,30 +149,30 @@ export function updateQuiz(id: string, input: Partial<CreateQuizInput>) {
 }
 
 export function deleteQuiz(id: string) {
-  return authFetch(`/quizzes/${id}`, { method: 'DELETE' })
+  return authorizedFetch(`/quizzes/${id}`, { method: 'DELETE' })
 }
 
 export function publishQuiz(id: string) {
-  return authFetch(`/quizzes/${id}/publish`, { method: 'POST' }) as Promise<QuizDetail>
+  return authorizedFetch(`/quizzes/${id}/publish`, { method: 'POST' }) as Promise<QuizDetail>
 }
 
 export function unpublishQuiz(id: string) {
-  return authFetch(`/quizzes/${id}/unpublish`, { method: 'POST' }) as Promise<QuizDetail>
+  return authorizedFetch(`/quizzes/${id}/unpublish`, { method: 'POST' }) as Promise<QuizDetail>
 }
 
 export function archiveQuiz(id: string) {
-  return authFetch(`/quizzes/${id}/archive`, { method: 'POST' }) as Promise<QuizDetail>
+  return authorizedFetch(`/quizzes/${id}/archive`, { method: 'POST' }) as Promise<QuizDetail>
 }
 
 export function getQuiz(id: string) {
-  return authFetch(`/quizzes/${id}`) as Promise<QuizDetail>
+  return authorizedFetch(`/quizzes/${id}`) as Promise<QuizDetail>
 }
 
 export function setQuizQuestions(
   quizId: string,
   questions: Array<{ questionId: string; sortOrder?: number; pinnedVersion?: number; pointsOverride?: number }>,
 ) {
-  return authFetch(`/quizzes/${quizId}/questions`, {
+  return authorizedFetch(`/quizzes/${quizId}/questions`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ questions }),
@@ -198,7 +183,7 @@ export function generateQuizQuestions(
   quizId: string,
   input: { mode: string; count: number; category?: string; tag?: string; difficulty?: string; replaceExisting?: boolean },
 ) {
-  return authFetch(`/quizzes/${quizId}/questions/generate`, {
+  return authorizedFetch(`/quizzes/${quizId}/questions/generate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
@@ -206,7 +191,7 @@ export function generateQuizQuestions(
 }
 
 export function fetchQuizAnalytics(quizId: string) {
-  return authFetch(`/quizzes/${quizId}/analytics`) as Promise<{
+  return authorizedFetch(`/quizzes/${quizId}/analytics`) as Promise<{
     attemptCount: number
     averageScore: number
     highestScore: number
@@ -218,18 +203,18 @@ export function fetchQuizAnalytics(quizId: string) {
 }
 
 export function startQuizAttempt(quizId: string) {
-  return authFetch(`/quizzes/${quizId}/attempts/start`, { method: 'POST' }) as Promise<QuizPlayerState>
+  return authorizedFetch(`/quizzes/${quizId}/attempts/start`, { method: 'POST' }) as Promise<QuizPlayerState>
 }
 
 export function fetchQuizPlayer(attemptId: string) {
-  return authFetch(`/quizzes/attempts/${attemptId}/player`) as Promise<QuizPlayerState>
+  return authorizedFetch(`/quizzes/attempts/${attemptId}/player`) as Promise<QuizPlayerState>
 }
 
 export function saveQuizAnswers(
   attemptId: string,
   answers: Array<{ quizQuestionId: string; response: unknown; flagged?: boolean }>,
 ) {
-  return authFetch(`/quizzes/attempts/${attemptId}/answers`, {
+  return authorizedFetch(`/quizzes/attempts/${attemptId}/answers`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ answers }),
@@ -237,15 +222,15 @@ export function saveQuizAnswers(
 }
 
 export function submitQuizAttempt(attemptId: string) {
-  return authFetch(`/quizzes/attempts/${attemptId}/submit`, { method: 'POST' }) as Promise<QuizResultDetail>
+  return authorizedFetch(`/quizzes/attempts/${attemptId}/submit`, { method: 'POST' }) as Promise<QuizResultDetail>
 }
 
 export function fetchQuizResult(attemptId: string) {
-  return authFetch(`/quizzes/attempts/${attemptId}/result`) as Promise<QuizResultDetail>
+  return authorizedFetch(`/quizzes/attempts/${attemptId}/result`) as Promise<QuizResultDetail>
 }
 
 export function fetchQuizAttemptHistory(quizId: string) {
-  return authFetch(`/quizzes/${quizId}/attempts/history`) as Promise<
+  return authorizedFetch(`/quizzes/${quizId}/attempts/history`) as Promise<
     Array<{
       id: string
       attemptNumber: number
